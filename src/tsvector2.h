@@ -20,13 +20,13 @@
  *
  * Structure of tsvector2 datatype:
  * 1) standard varlena header
- * 2) int32		size - number of lexemes (WordEntry array entries)
- * 3) Array of WordEntry - one per lexeme; must be sorted according to
+ * 2) int32		size - number of lexemes (WordEntry2 array entries)
+ * 3) Array of WordEntry2 - one per lexeme; must be sorted according to
  *				tsCompareString() (ie, memcmp of lexeme strings).
- *	  WordEntry have two types: offset or metadata (length of lexeme and number
+ *	  WordEntry2 have two types: offset or metadata (length of lexeme and number
  *	  of positions). If it has offset then metadata will be by this offset.
  * 4) Per-lexeme data storage:
- *    [4-byte aligned WordEntry] (if its WordEntry has offset)
+ *    [4-byte aligned WordEntry2] (if its WordEntry2 has offset)
  *	  2-byte aligned lexeme string (not null-terminated)
  *	  if it has positions:
  *		padding byte if necessary to make the position data 2-byte aligned
@@ -34,7 +34,7 @@
  *
  * The positions for each lexeme must be sorted.
  *
- * Note, tsvector2 functions believe that sizeof(WordEntry) == 4
+ * Note, tsvector2 functions believe that sizeof(WordEntry2) == 4
  */
 
 #define TS_OFFSET_STRIDE 4
@@ -53,7 +53,7 @@ typedef union
 					npos:16,
 					_unused:4;
 	};
-} WordEntry;
+} WordEntry2;
 
 #define MAXSTRLEN ( (1<<11) - 1)
 #define MAXSTRPOS ( (1<<30) - 1)
@@ -87,7 +87,7 @@ typedef struct
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int32		size_;			/* flags and lexemes count */
-	WordEntry	entries[FLEXIBLE_ARRAY_MEMBER];
+	WordEntry2	entries[FLEXIBLE_ARRAY_MEMBER];
 	/* lexemes follow the entries[] array */
 } TSVectorData2;
 
@@ -98,20 +98,20 @@ typedef TSVectorData2 *TSVector2;
 #define TS_SETCOUNT(t,c) ((t)->size_ = (c) | TS_FLAG_STRETCHED)
 
 #define DATAHDRSIZE (offsetof(TSVectorData2, entries))
-#define CALCDATASIZE(nentries, lenstr) (DATAHDRSIZE + (nentries) * sizeof(WordEntry) + (lenstr) )
+#define CALCDATASIZE(nentries, lenstr) (DATAHDRSIZE + (nentries) * sizeof(WordEntry2) + (lenstr) )
 
-/* pointer to start of a tsvector2's WordEntry array */
-#define ARRPTR(x)	( (x)->entries )
+/* pointer to start of a tsvector2's WordEntry2 array */
+#define tsvector2_entries(x)	( (x)->entries )
 
 /* pointer to start of a tsvector2's lexeme storage */
-#define STRPTR(x)	( (char *) &(x)->entries[TS_COUNT(x)] )
+#define tsvector2_storage(x)	( (char *) &(x)->entries[TS_COUNT(x)] )
 
-/* for WordEntry with offset return its WordEntry with other properties */
+/* for WordEntry2 with offset return its WordEntry2 with other properties */
 #define UNWRAP_ENTRY(x,we) \
-	((we)->hasoff? (WordEntry *)(STRPTR(x) + (we)->offset): (we))
+	((we)->hasoff? (WordEntry2 *)(tsvector2_storage(x) + (we)->offset): (we))
 
 /*
- * helpers used when we're not sure that WordEntry
+ * helpers used when we're not sure that WordEntry2
  * contains ether offset or len
  */
 #define ENTRY_NPOS(x,we) (UNWRAP_ENTRY(x,we)->npos)
@@ -121,29 +121,29 @@ typedef TSVectorData2 *TSVector2;
 #define POSDATAPTR(lex, len) ((WordEntryPos *) (lex + SHORTALIGN(len)))
 
 /* set default offset in tsvector2 data */
-#define INITPOS(p) ((p) = sizeof(WordEntry))
+#define INITPOS(p) ((p) = sizeof(WordEntry2))
 
-/* increment entry and offset by given WordEntry */
+/* increment entry and offset by given WordEntry2 */
 #define INCRPTR(x,w,p) \
 do { \
-	WordEntry *y = (w);									\
+	WordEntry2 *y = (w);									\
 	if ((w)->hasoff)									\
 	{													\
-		y = (WordEntry *) (STRPTR(x) + (w)->offset);	\
-		(p) = (w)->offset + sizeof(WordEntry);			\
+		y = (WordEntry2 *) (tsvector2_storage(x) + (w)->offset);	\
+		(p) = (w)->offset + sizeof(WordEntry2);			\
 	}													\
 	(w)++;												\
 	Assert(!y->hasoff);									\
 	(p) += SHORTALIGN(y->len) + y->npos * sizeof(WordEntryPos); \
 	if ((w) - ARRPTR(x) < TS_COUNT(x) && w->hasoff)		\
-		(p) = INTALIGN(p) + sizeof(WordEntry);			\
+		(p) = INTALIGN(p) + sizeof(WordEntry2);			\
 } while (0);
 
 /* used to calculate tsvector2 size in in tsvector2 constructors */
 #define INCRSIZE(s,i,l,n) /* size,index,len,npos */		\
 do {													\
 	if ((i) % TS_OFFSET_STRIDE == 0)					\
-		(s) = INTALIGN(s) + sizeof(WordEntry);			\
+		(s) = INTALIGN(s) + sizeof(WordEntry2);			\
 	else												\
 		(s) = SHORTALIGN(s);							\
 	(s) += (l);											\
@@ -194,7 +194,7 @@ typedef struct
 								 * integers in the code. They would need to be
 								 * changed as well. */
 
-	/* pointer to text value of operand, must correlate with WordEntry */
+	/* pointer to text value of operand, must correlate with WordEntry2 */
 	uint32
 				length:12,
 				distance:20;
@@ -273,20 +273,20 @@ typedef TSQueryData *TSQuery;
  * but PG_DETOAST_DATUM_COPY is used for simplicity
  */
 
-#define DatumGetTSQuery(X)			((TSQuery) DatumGetPointer(X))
-#define DatumGetTSQueryCopy(X)		((TSQuery) PG_DETOAST_DATUM_COPY(X))
+#define DatumGetTSQuery(X)			(PG_DETOAST_DATUM(X))
+#define DatumGetTSQueryCopy(X)		(PG_DETOAST_DATUM_COPY(X))
 #define TSQueryGetDatum(X)			PointerGetDatum(X)
 #define PG_GETARG_TSQUERY(n)		DatumGetTSQuery(PG_GETARG_DATUM(n))
 #define PG_GETARG_TSQUERY_COPY(n)	DatumGetTSQueryCopy(PG_GETARG_DATUM(n))
 #define PG_RETURN_TSQUERY(x)		return TSQueryGetDatum(x)
 
-int			tsvector2_getoffset(TSVector2 vec, int idx, WordEntry **we);
+int tsvector2_getoffset(TSVector2 vec, int idx, WordEntry2 **we);
 char *tsvector2_addlexeme(TSVector2 tsv, int idx, int *dataoff,
-				   char *lexeme, int lexeme_len, WordEntryPos *pos, int npos);
+	char *lexeme, int lexeme_len, WordEntryPos *pos, int npos);
 
 /* Returns lexeme and its entry by given index from TSVector2 */
 inline static char *
-tsvector2_getlexeme(TSVector2 vec, int idx, WordEntry **we)
+tsvector2_getlexeme(TSVector2 vec, int idx, WordEntry2 **we)
 {
 	Assert(idx >= 0 && idx < TS_COUNT(vec));
 
@@ -295,7 +295,7 @@ tsvector2_getlexeme(TSVector2 vec, int idx, WordEntry **we)
 	 * always should be used with we->len
 	 */
 	Assert(we != NULL);
-	return STRPTR(vec) + tsvector2_getoffset(vec, idx, we);
+	return tsvector2_storage(vec) + tsvector2_getoffset(vec, idx, we);
 }
 
 #endif							/* _PG_TSTYPE_H_ */

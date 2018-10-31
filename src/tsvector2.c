@@ -21,7 +21,7 @@
 
 typedef struct
 {
-	WordEntry	entry;			/* must be first! */
+	WordEntry2	entry;			/* must be first! */
 	size_t		offset;			/* offset of lexeme in some buffer */
 	WordEntryPos *pos;
 } WordEntryIN;
@@ -89,19 +89,19 @@ compareentry_in(const void *va, const void *vb, void *arg)
 						   false);
 }
 
-/* Compare two WordEntry values for qsort */
+/* Compare two WordEntry2 values for qsort */
 static int
 compareentry(const void *va, const void *vb, void *arg)
 {
-	const WordEntry *a = (const WordEntry *) va;
-	const WordEntry *b = (const WordEntry *) vb;
+	const WordEntry2 *a = (const WordEntry2 *) va;
+	const WordEntry2 *b = (const WordEntry2 *) vb;
 	TSVector	tsv = (TSVector) arg;
 
-	uint32		offset1 = tsvector2_getoffset(tsv, a - ARRPTR(tsv), NULL),
-				offset2 = tsvector2_getoffset(tsv, b - ARRPTR(tsv), NULL);
+	uint32		offset1 = tsvector2_getoffset(tsv, a - tsvector2_entries(tsv), NULL),
+				offset2 = tsvector2_getoffset(tsv, b - tsvector2_entries(tsv), NULL);
 
-	return tsCompareString(STRPTR(tsv) + offset1, ENTRY_LEN(tsv, a),
-						   STRPTR(tsv) + offset2, ENTRY_LEN(tsv, b),
+	return tsCompareString(tsvector2_storage(tsv) + offset1, ENTRY_LEN(tsv, a),
+						   tsvector2_storage(tsv) + offset2, ENTRY_LEN(tsv, b),
 						   false);
 }
 
@@ -138,7 +138,7 @@ uniqueentry(WordEntryIN *a, int l, char *buf, int *outbuflen)
 			if (i++ % TS_OFFSET_STRIDE == 0)
 			{
 				buflen = INTALIGN(buflen);
-				buflen += sizeof(WordEntry);
+				buflen += sizeof(WordEntry2);
 			}
 
 			buflen += res->entry.len;
@@ -180,7 +180,7 @@ uniqueentry(WordEntryIN *a, int l, char *buf, int *outbuflen)
 	if (i % TS_OFFSET_STRIDE == 0)
 	{
 		buflen = INTALIGN(buflen);
-		buflen += sizeof(WordEntry);
+		buflen += sizeof(WordEntry2);
 	}
 	else
 		buflen = SHORTALIGN(buflen);
@@ -297,7 +297,7 @@ tsvector2in(PG_FUNCTION_ARGS)
 			pfree(arr[i].pos);
 	}
 
-	Assert((STRPTR(in) + stroff - (char *) in) == totallen);
+	Assert((tsvector2_storage(in) + stroff - (char *) in) == totallen);
 	PG_RETURN_TSVECTOR(in);
 }
 
@@ -311,7 +311,7 @@ tsvector2out(PG_FUNCTION_ARGS)
 				pp,
 				tscount = TS_COUNT(out);
 	uint32		pos;
-	WordEntry  *ptr = ARRPTR(out);
+	WordEntry2  *ptr = tsvector2_entries(out);
 	char	   *curbegin,
 			   *curin,
 			   *curout;
@@ -334,7 +334,7 @@ tsvector2out(PG_FUNCTION_ARGS)
 		int			lex_len = ENTRY_LEN(out, ptr),
 					npos = ENTRY_NPOS(out, ptr);
 
-		curbegin = curin = STRPTR(out) + pos;
+		curbegin = curin = tsvector2_storage(out) + pos;
 		if (i != 0)
 			*curout++ = ' ';
 		*curout++ = '\'';
@@ -412,7 +412,7 @@ tsvector2send(PG_FUNCTION_ARGS)
 	int			i,
 				j;
 	uint32		pos;
-	WordEntry  *weptr = ARRPTR(vec);
+	WordEntry2  *weptr = tsvector2_entries(vec);
 
 	pq_begintypsend(&buf);
 	pq_sendint32(&buf, TS_COUNT(vec));
@@ -420,7 +420,7 @@ tsvector2send(PG_FUNCTION_ARGS)
 	INITPOS(pos);
 	for (i = 0; i < TS_COUNT(vec); i++)
 	{
-		char	   *lexeme = STRPTR(vec) + pos;
+		char	   *lexeme = tsvector2_storage(vec) + pos;
 		int			npos = ENTRY_NPOS(vec, weptr),
 					lex_len = ENTRY_LEN(vec, weptr);
 
@@ -463,10 +463,10 @@ tsvector2recv(PG_FUNCTION_ARGS)
 	int			prev_lex_len;
 
 	nentries = pq_getmsgint(buf, sizeof(int32));
-	if (nentries < 0 || nentries > (MaxAllocSize / sizeof(WordEntry)))
+	if (nentries < 0 || nentries > (MaxAllocSize / sizeof(WordEntry2)))
 		elog(ERROR, "invalid size of tsvector2");
 
-	hdrlen = DATAHDRSIZE + sizeof(WordEntry) * nentries;
+	hdrlen = DATAHDRSIZE + sizeof(WordEntry2) * nentries;
 
 	len = hdrlen * 2;			/* times two to make room for lexemes */
 	vec = (TSVector) palloc0(len);
@@ -496,11 +496,11 @@ tsvector2recv(PG_FUNCTION_ARGS)
 			elog(ERROR, "unexpected number of tsvector2 positions");
 
 		/*
-		 * Looks valid. Fill the WordEntry struct, and copy lexeme.
+		 * Looks valid. Fill the WordEntry2 struct, and copy lexeme.
 		 *
 		 * But make sure the buffer is large enough first.
 		 */
-		while (hdrlen + SHORTALIGN(datalen + lex_len) + sizeof(WordEntry) +
+		while (hdrlen + SHORTALIGN(datalen + lex_len) + sizeof(WordEntry2) +
 			   npos * sizeof(WordEntryPos) >= len)
 		{
 			len *= 2;
@@ -534,7 +534,7 @@ tsvector2recv(PG_FUNCTION_ARGS)
 	SET_VARSIZE(vec, hdrlen + datalen);
 
 	if (needSort)
-		qsort_arg((void *) ARRPTR(vec), TS_COUNT(vec), sizeof(WordEntry),
+		qsort_arg((void *) tsvector2_entries(vec), TS_COUNT(vec), sizeof(WordEntry2),
 				  compareentry, (void *) vec);
 
 	PG_RETURN_TSVECTOR(vec);
