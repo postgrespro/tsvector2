@@ -1,13 +1,10 @@
 /*-------------------------------------------------------------------------
  *
- * tsvector.c
- *	  I/O functions for tsvector
+ * tsvector2.c
+ *	  I/O functions for tsvector2
  *
  * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
- *
- *
- * IDENTIFICATION
- *	  src/backend/utils/adt/tsvector.c
+ * Portions Copyright (c) 2018, PostgresPro
  *
  *-------------------------------------------------------------------------
  */
@@ -17,9 +14,10 @@
 #include "libpq/pqformat.h"
 #include "utils/builtins.h"
 #include "utils/memutils.h"
+#include "tsearch/ts_locale.h"
+#include "tsearch/ts_utils.h"
 
-#include "ts_locale.h"
-#include "ts_utils.h"
+#include "tsvector2.h"
 
 typedef struct
 {
@@ -99,8 +97,8 @@ compareentry(const void *va, const void *vb, void *arg)
 	const WordEntry *b = (const WordEntry *) vb;
 	TSVector	tsv = (TSVector) arg;
 
-	uint32		offset1 = tsvector_getoffset(tsv, a - ARRPTR(tsv), NULL),
-				offset2 = tsvector_getoffset(tsv, b - ARRPTR(tsv), NULL);
+	uint32		offset1 = tsvector2_getoffset(tsv, a - ARRPTR(tsv), NULL),
+				offset2 = tsvector2_getoffset(tsv, b - ARRPTR(tsv), NULL);
 
 	return tsCompareString(STRPTR(tsv) + offset1, ENTRY_LEN(tsv, a),
 						   STRPTR(tsv) + offset2, ENTRY_LEN(tsv, b),
@@ -201,7 +199,7 @@ uniqueentry(WordEntryIN *a, int l, char *buf, int *outbuflen)
 }
 
 Datum
-tsvectorin(PG_FUNCTION_ARGS)
+tsvector2in(PG_FUNCTION_ARGS)
 {
 	char	   *buf = PG_GETARG_CSTRING(0);
 	TSVectorParseState state;
@@ -225,13 +223,13 @@ tsvectorin(PG_FUNCTION_ARGS)
 	char	   *cur;
 	int			buflen = 256;	/* allocated size of tmpbuf */
 
-	state = init_tsvector_parser(buf, 0);
+	state = init_tsvector2_parser(buf, 0);
 
 	arrlen = 64;
 	arr = (WordEntryIN *) palloc(sizeof(WordEntryIN) * arrlen);
 	cur = tmpbuf = (char *) palloc(buflen);
 
-	while (gettoken_tsvector(state, &token, &toklen, &pos, &poslen, NULL))
+	while (gettoken_tsvector2(state, &token, &toklen, &pos, &poslen, NULL))
 	{
 		if (toklen >= MAXSTRLEN)
 			ereport(ERROR,
@@ -243,7 +241,7 @@ tsvectorin(PG_FUNCTION_ARGS)
 		if (cur - tmpbuf > MAXSTRPOS)
 			ereport(ERROR,
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-					 errmsg("string is too long for tsvector (%ld bytes, max %ld bytes)",
+					 errmsg("string is too long for tsvector2 (%ld bytes, max %ld bytes)",
 							(long) (cur - tmpbuf), (long) MAXSTRPOS)));
 
 		/*
@@ -273,7 +271,7 @@ tsvectorin(PG_FUNCTION_ARGS)
 		len++;
 	}
 
-	close_tsvector_parser(state);
+	close_tsvector2_parser(state);
 
 	if (len > 0)
 		len = uniqueentry(arr, len, tmpbuf, &buflen);
@@ -283,7 +281,7 @@ tsvectorin(PG_FUNCTION_ARGS)
 	if (buflen > MAXSTRPOS)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("string is too long for tsvector (%d bytes, max %d bytes)", buflen, MAXSTRPOS)));
+				 errmsg("string is too long for tsvector2 (%d bytes, max %d bytes)", buflen, MAXSTRPOS)));
 
 	totallen = CALCDATASIZE(len, buflen);
 	in = (TSVector) palloc0(totallen);
@@ -292,7 +290,7 @@ tsvectorin(PG_FUNCTION_ARGS)
 	stroff = 0;
 	for (i = 0; i < len; i++)
 	{
-		tsvector_addlexeme(in, i, &stroff, &tmpbuf[arr[i].offset],
+		tsvector2_addlexeme(in, i, &stroff, &tmpbuf[arr[i].offset],
 						   arr[i].entry.len, arr[i].pos, arr[i].entry.npos);
 
 		if (arr[i].entry.npos)
@@ -304,7 +302,7 @@ tsvectorin(PG_FUNCTION_ARGS)
 }
 
 Datum
-tsvectorout(PG_FUNCTION_ARGS)
+tsvector2out(PG_FUNCTION_ARGS)
 {
 	TSVector	out = PG_GETARG_TSVECTOR(0);
 	char	   *outbuf;
@@ -407,7 +405,7 @@ tsvectorout(PG_FUNCTION_ARGS)
  */
 
 Datum
-tsvectorsend(PG_FUNCTION_ARGS)
+tsvector2send(PG_FUNCTION_ARGS)
 {
 	TSVector	vec = PG_GETARG_TSVECTOR(0);
 	StringInfoData buf;
@@ -449,7 +447,7 @@ tsvectorsend(PG_FUNCTION_ARGS)
 }
 
 Datum
-tsvectorrecv(PG_FUNCTION_ARGS)
+tsvector2recv(PG_FUNCTION_ARGS)
 {
 	StringInfo	buf = (StringInfo) PG_GETARG_POINTER(0);
 	TSVector	vec;
@@ -466,7 +464,7 @@ tsvectorrecv(PG_FUNCTION_ARGS)
 
 	nentries = pq_getmsgint(buf, sizeof(int32));
 	if (nentries < 0 || nentries > (MaxAllocSize / sizeof(WordEntry)))
-		elog(ERROR, "invalid size of tsvector");
+		elog(ERROR, "invalid size of tsvector2");
 
 	hdrlen = DATAHDRSIZE + sizeof(WordEntry) * nentries;
 
@@ -489,13 +487,13 @@ tsvectorrecv(PG_FUNCTION_ARGS)
 
 		lex_len = strlen(lexeme);
 		if (lex_len > MAXSTRLEN)
-			elog(ERROR, "invalid tsvector: lexeme too long");
+			elog(ERROR, "invalid tsvector2: lexeme too long");
 
 		if (datalen > MAXSTRPOS)
-			elog(ERROR, "invalid tsvector: maximum total lexeme length exceeded");
+			elog(ERROR, "invalid tsvector2: maximum total lexeme length exceeded");
 
 		if (npos > MAXNUMPOS)
-			elog(ERROR, "unexpected number of tsvector positions");
+			elog(ERROR, "unexpected number of tsvector2 positions");
 
 		/*
 		 * Looks valid. Fill the WordEntry struct, and copy lexeme.
@@ -513,7 +511,7 @@ tsvectorrecv(PG_FUNCTION_ARGS)
 										   prev_lexeme, prev_lex_len, false) <= 0)
 			needSort = true;
 
-		lexeme_out = tsvector_addlexeme(vec, i, &datalen, lexeme,
+		lexeme_out = tsvector2_addlexeme(vec, i, &datalen, lexeme,
 										lex_len, NULL, npos);
 		if (npos > 0)
 		{

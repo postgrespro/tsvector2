@@ -1,13 +1,10 @@
 /*-------------------------------------------------------------------------
  *
- * tsvector_op.c
- *	  operations over tsvector
+ * tsvector2_op.c
+ *	  operations over tsvector2
  *
  * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
- *
- *
- * IDENTIFICATION
- *	  src/backend/utils/adt/tsvector_op.c
+ * Copyright (c) 2018, PostgresPro
  *
  *-------------------------------------------------------------------------
  */
@@ -28,12 +25,13 @@
 #include "utils/lsyscache.h"
 #include "utils/regproc.h"
 #include "utils/rel.h"
+#include "tsearch/ts_utils.h"
 
-#include "ts_utils.h"
+#include "tsvector2.h"
 
 typedef struct
 {
-	TSVector	vec;
+	TSVector2	vec;
 	int			bidx;
 	int			eidx;
 	char	   *operand;
@@ -67,14 +65,14 @@ typedef struct
 
 #define STATHDRSIZE (offsetof(TSVectorStat, data))
 
-static Datum tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column);
-static int	tsvector_bsearch(const TSVector tsv, char *lexeme, int lexeme_len);
+static Datum tsvector2_update_trigger(PG_FUNCTION_ARGS, bool config_column);
+static int	tsvector2_bsearch(const TSVector2 tsv, char *lexeme, int lexeme_len);
 
 /*
  * Order: npos, len, word, for all positions (pos, weight)
  */
 static int
-silly_cmp_tsvector(const TSVector a, const TSVector b)
+silly_cmp_tsvector2(const TSVector2 a, const TSVector2 b)
 {
 	if (VARSIZE(a) < VARSIZE(b))
 		return -1;
@@ -147,11 +145,11 @@ silly_cmp_tsvector(const TSVector a, const TSVector b)
 
 #define TSVECTORCMPFUNC( type, action, ret )			\
 Datum													\
-tsvector_##type(PG_FUNCTION_ARGS)						\
+tsvector2_##type(PG_FUNCTION_ARGS)						\
 {														\
-	TSVector	a = PG_GETARG_TSVECTOR(0);				\
-	TSVector	b = PG_GETARG_TSVECTOR(1);				\
-	int			res = silly_cmp_tsvector(a, b);			\
+	TSVector2	a = PG_GETARG_TSVECTOR(0);				\
+	TSVector2	b = PG_GETARG_TSVECTOR(1);				\
+	int			res = silly_cmp_tsvector2(a, b);			\
 	PG_FREE_IF_COPY(a,0);								\
 	PG_FREE_IF_COPY(b,1);								\
 	PG_RETURN_##ret( res action 0 );					\
@@ -168,10 +166,10 @@ TSVECTORCMPFUNC(ne, !=, BOOL);
 TSVECTORCMPFUNC(cmp, +, INT32);
 
 Datum
-tsvector_strip(PG_FUNCTION_ARGS)
+tsvector2_strip(PG_FUNCTION_ARGS)
 {
-	TSVector	in = PG_GETARG_TSVECTOR(0);
-	TSVector	out;
+	TSVector2	in = PG_GETARG_TSVECTOR(0);
+	TSVector2	out;
 	int			i,
 				count,
 				posout = 0,
@@ -184,14 +182,14 @@ tsvector_strip(PG_FUNCTION_ARGS)
 		INCRSIZE(len, i, ENTRY_LEN(in, ARRPTR(in) + i), 0);
 
 	len = CALCDATASIZE(count, len);
-	out = (TSVector) palloc0(len);
+	out = (TSVector2) palloc0(len);
 	SET_VARSIZE(out, len);
 	TS_SETCOUNT(out, count);
 
 	INITPOS(pos);
 	for (i = 0; i < count; i++)
 	{
-		tsvector_addlexeme(out, i, &posout,
+		tsvector2_addlexeme(out, i, &posout,
 						   STRPTR(in) + pos, ENTRY_LEN(in, entryin),
 						   NULL, 0);
 
@@ -203,9 +201,9 @@ tsvector_strip(PG_FUNCTION_ARGS)
 }
 
 Datum
-tsvector_length(PG_FUNCTION_ARGS)
+tsvector2_length(PG_FUNCTION_ARGS)
 {
-	TSVector	in = PG_GETARG_TSVECTOR(0);
+	TSVector2	in = PG_GETARG_TSVECTOR(0);
 	int32		ret = TS_COUNT(in);
 
 	PG_FREE_IF_COPY(in, 0);
@@ -213,11 +211,11 @@ tsvector_length(PG_FUNCTION_ARGS)
 }
 
 Datum
-tsvector_setweight(PG_FUNCTION_ARGS)
+tsvector2_setweight(PG_FUNCTION_ARGS)
 {
-	TSVector	in = PG_GETARG_TSVECTOR(0);
+	TSVector2	in = PG_GETARG_TSVECTOR(0);
 	char		cw = PG_GETARG_CHAR(1);
-	TSVector	out;
+	TSVector2	out;
 	int			i;
 	WordEntry  *weptr;
 	int			w = 0;
@@ -246,7 +244,7 @@ tsvector_setweight(PG_FUNCTION_ARGS)
 			elog(ERROR, "unrecognized weight: %d", cw);
 	}
 
-	out = (TSVector) palloc(VARSIZE(in));
+	out = (TSVector2) palloc(VARSIZE(in));
 	memcpy(out, in, VARSIZE(in));
 	weptr = ARRPTR(out);
 
@@ -271,18 +269,18 @@ tsvector_setweight(PG_FUNCTION_ARGS)
 }
 
 /*
- * setweight(tsin tsvector, char_weight "char", lexemes "text"[])
+ * setweight(tsin tsvector2, char_weight "char", lexemes "text"[])
  *
  * Assign weight w to elements of tsin that are listed in lexemes.
  */
 Datum
-tsvector_setweight_by_filter(PG_FUNCTION_ARGS)
+tsvector2_setweight_by_filter(PG_FUNCTION_ARGS)
 {
-	TSVector	tsin = PG_GETARG_TSVECTOR(0);
+	TSVector2	tsin = PG_GETARG_TSVECTOR(0);
 	char		char_weight = PG_GETARG_CHAR(1);
 	ArrayType  *lexemes = PG_GETARG_ARRAYTYPE_P(2);
 
-	TSVector	tsout;
+	TSVector2	tsout;
 	int			i,
 				nlexemes,
 				weight;
@@ -312,15 +310,15 @@ tsvector_setweight_by_filter(PG_FUNCTION_ARGS)
 			elog(ERROR, "unrecognized weight: %c", char_weight);
 	}
 
-	tsout = (TSVector) palloc(VARSIZE(tsin));
+	tsout = (TSVector2) palloc(VARSIZE(tsin));
 	memcpy(tsout, tsin, VARSIZE(tsin));
 	deconstruct_array(lexemes, TEXTOID, -1, false, 'i',
 					  &dlexemes, &nulls, &nlexemes);
 
 	/*
-	 * Assuming that lexemes array is significantly shorter than tsvector we
+	 * Assuming that lexemes array is significantly shorter than tsvector2 we
 	 * can iterate through lexemes performing binary search of each lexeme
-	 * from lexemes in tsvector.
+	 * from lexemes in tsvector2.
 	 */
 	for (i = 0; i < nlexemes; i++)
 	{
@@ -336,14 +334,14 @@ tsvector_setweight_by_filter(PG_FUNCTION_ARGS)
 
 		lex = VARDATA(dlexemes[i]);
 		lex_len = VARSIZE(dlexemes[i]) - VARHDRSZ;
-		lex_idx = tsvector_bsearch(tsin, lex, lex_len);
+		lex_idx = tsvector2_bsearch(tsin, lex, lex_len);
 		npos = ENTRY_NPOS(tsin, ARRPTR(tsout) + lex_idx);
 
 		if (lex_idx >= 0 && npos > 0)
 		{
 			int			j;
 			WordEntry  *we;
-			char	   *lexeme = tsvector_getlexeme(tsout, lex_idx, &we);
+			char	   *lexeme = tsvector2_getlexeme(tsout, lex_idx, &we);
 
 			WordEntryPos *p = POSDATAPTR(lexeme, we->len);
 
@@ -392,12 +390,12 @@ add_pos(char *src, WordEntry *srcptr,
 }
 
 /*
- * Perform binary search of given lexeme in TSVector.
- * Returns lexeme position in TSVector's entry array or -1 if lexeme wasn't
+ * Perform binary search of given lexeme in TSVector2.
+ * Returns lexeme position in TSVector2's entry array or -1 if lexeme wasn't
  * found.
  */
 static int
-tsvector_bsearch(const TSVector tsv, char *lexeme, int lexeme_len)
+tsvector2_bsearch(const TSVector2 tsv, char *lexeme, int lexeme_len)
 {
 	int			StopLow = 0,
 				StopHigh = TS_COUNT(tsv),
@@ -410,7 +408,7 @@ tsvector_bsearch(const TSVector tsv, char *lexeme, int lexeme_len)
 		char	   *str;
 
 		StopMiddle = (StopLow + StopHigh) / 2;
-		str = tsvector_getlexeme(tsv, StopMiddle, &entry);
+		str = tsvector2_getlexeme(tsv, StopMiddle, &entry);
 		cmp = tsCompareString(lexeme, lexeme_len,
 							  str, entry->len, false);
 
@@ -454,22 +452,22 @@ compare_text_lexemes(const void *va, const void *vb)
 }
 
 /*
- * Internal routine to delete lexemes from TSVector by array of offsets.
+ * Internal routine to delete lexemes from TSVector2 by array of offsets.
  *
  * int *indices_to_delete -- array of lexeme offsets to delete (modified here!)
  * int indices_count -- size of that array
  *
- * Returns new TSVector without given lexemes along with their positions
+ * Returns new TSVector2 without given lexemes along with their positions
  * and weights.
  */
-static TSVector
-tsvector_delete_by_indices(TSVector tsv, int *indices_to_delete,
+static TSVector2
+tsvector2_delete_by_indices(TSVector2 tsv, int *indices_to_delete,
 						   int indices_count)
 {
-	TSVector	tsout;
+	TSVector2	tsout;
 	WordEntry  *ptr = ARRPTR(tsv);
-	int			i,				/* index in input tsvector */
-				j,				/* index in output tsvector */
+	int			i,				/* index in input tsvector2 */
+				j,				/* index in output tsvector2 */
 				k,				/* index in indices_to_delete */
 				curoff = 0,		/* index in data area of output */
 				pos;
@@ -497,7 +495,7 @@ tsvector_delete_by_indices(TSVector tsv, int *indices_to_delete,
 	 * Here we overestimate tsout size, since we don't know how much space is
 	 * used by the deleted lexeme(s).  We will set exact size below.
 	 */
-	tsout = (TSVector) palloc0(VARSIZE(tsv));
+	tsout = (TSVector2) palloc0(VARSIZE(tsv));
 
 	/* This count must be correct because STRPTR(tsout) relies on it. */
 	TS_SETCOUNT(tsout, TS_COUNT(tsv) - indices_count);
@@ -523,7 +521,7 @@ tsvector_delete_by_indices(TSVector tsv, int *indices_to_delete,
 			goto next;
 		}
 
-		tsvector_addlexeme(tsout, j++, &curoff, lex, lex_len,
+		tsvector2_addlexeme(tsout, j++, &curoff, lex, lex_len,
 						   POSDATAPTR(lex, lex_len), ENTRY_NPOS(tsv, ptr));
 
 next:
@@ -541,23 +539,23 @@ next:
 }
 
 /*
- * Delete given lexeme from tsvector.
- * Implementation of user-level ts_delete(tsvector, text).
+ * Delete given lexeme from tsvector2.
+ * Implementation of user-level ts_delete(tsvector2, text).
  */
 Datum
-tsvector_delete_str(PG_FUNCTION_ARGS)
+tsvector2_delete_str(PG_FUNCTION_ARGS)
 {
-	TSVector	tsin = PG_GETARG_TSVECTOR(0),
+	TSVector2	tsin = PG_GETARG_TSVECTOR(0),
 				tsout;
 	text	   *tlexeme = PG_GETARG_TEXT_PP(1);
 	char	   *lexeme = VARDATA_ANY(tlexeme);
 	int			lexeme_len = VARSIZE_ANY_EXHDR(tlexeme),
 				skip_index;
 
-	if ((skip_index = tsvector_bsearch(tsin, lexeme, lexeme_len)) == -1)
+	if ((skip_index = tsvector2_bsearch(tsin, lexeme, lexeme_len)) == -1)
 		PG_RETURN_POINTER(tsin);
 
-	tsout = tsvector_delete_by_indices(tsin, &skip_index, 1);
+	tsout = tsvector2_delete_by_indices(tsin, &skip_index, 1);
 
 	PG_FREE_IF_COPY(tsin, 0);
 	PG_FREE_IF_COPY(tlexeme, 1);
@@ -565,13 +563,13 @@ tsvector_delete_str(PG_FUNCTION_ARGS)
 }
 
 /*
- * Delete given array of lexemes from tsvector.
- * Implementation of user-level ts_delete(tsvector, text[]).
+ * Delete given array of lexemes from tsvector2.
+ * Implementation of user-level ts_delete(tsvector2, text[]).
  */
 Datum
-tsvector_delete_arr(PG_FUNCTION_ARGS)
+tsvector2_delete_arr(PG_FUNCTION_ARGS)
 {
-	TSVector	tsin = PG_GETARG_TSVECTOR(0),
+	TSVector2	tsin = PG_GETARG_TSVECTOR(0),
 				tsout;
 	ArrayType  *lexemes = PG_GETARG_ARRAYTYPE_P(1);
 	int			i,
@@ -587,7 +585,7 @@ tsvector_delete_arr(PG_FUNCTION_ARGS)
 	/*
 	 * In typical use case array of lexemes to delete is relatively small. So
 	 * here we optimize things for that scenario: iterate through lexarr
-	 * performing binary search of each lexeme from lexarr in tsvector.
+	 * performing binary search of each lexeme from lexarr in tsvector2.
 	 */
 	skip_indices = palloc0(nlex * sizeof(int));
 	for (i = skip_count = 0; i < nlex; i++)
@@ -603,13 +601,13 @@ tsvector_delete_arr(PG_FUNCTION_ARGS)
 
 		lex = VARDATA(dlexemes[i]);
 		lex_len = VARSIZE(dlexemes[i]) - VARHDRSZ;
-		lex_pos = tsvector_bsearch(tsin, lex, lex_len);
+		lex_pos = tsvector2_bsearch(tsin, lex, lex_len);
 
 		if (lex_pos >= 0)
 			skip_indices[skip_count++] = lex_pos;
 	}
 
-	tsout = tsvector_delete_by_indices(tsin, skip_indices, skip_count);
+	tsout = tsvector2_delete_by_indices(tsin, skip_indices, skip_count);
 
 	pfree(skip_indices);
 	PG_FREE_IF_COPY(tsin, 0);
@@ -619,16 +617,16 @@ tsvector_delete_arr(PG_FUNCTION_ARGS)
 }
 
 /*
- * Expand tsvector as table with following columns:
+ * Expand tsvector2 as table with following columns:
  *	   lexeme: lexeme text
  *	   positions: integer array of lexeme positions
  *	   weights: char array of weights corresponding to positions
  */
 Datum
-tsvector_unnest(PG_FUNCTION_ARGS)
+tsvector2_unnest(PG_FUNCTION_ARGS)
 {
 	FuncCallContext *funcctx;
-	TSVector	tsin;
+	TSVector2	tsin;
 	uint32		pos;
 
 	if (SRF_IS_FIRSTCALL())
@@ -655,7 +653,7 @@ tsvector_unnest(PG_FUNCTION_ARGS)
 	}
 
 	funcctx = SRF_PERCALL_SETUP();
-	tsin = (TSVector) linitial(funcctx->user_fctx);
+	tsin = (TSVector2) linitial(funcctx->user_fctx);
 	pos = intVal(lsecond(funcctx->user_fctx));
 
 	if (funcctx->call_cntr < TS_COUNT(tsin))
@@ -680,7 +678,7 @@ tsvector_unnest(PG_FUNCTION_ARGS)
 			char		weight;
 
 			/*
-			 * Internally tsvector stores position and weight in the same
+			 * Internally tsvector2 stores position and weight in the same
 			 * uint16 (2 bits for weight, 14 for position). Here we extract
 			 * that in two separate arrays.
 			 */
@@ -717,12 +715,12 @@ tsvector_unnest(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convert tsvector to array of lexemes.
+ * Convert tsvector2 to array of lexemes.
  */
 Datum
-tsvector_to_array(PG_FUNCTION_ARGS)
+tsvector2_to_array(PG_FUNCTION_ARGS)
 {
-	TSVector	tsin = PG_GETARG_TSVECTOR(0);
+	TSVector2	tsin = PG_GETARG_TSVECTOR(0);
 	WordEntry  *entry = ARRPTR(tsin);
 	Datum	   *elements;
 	int			i;
@@ -747,11 +745,11 @@ tsvector_to_array(PG_FUNCTION_ARGS)
 }
 
 /*
- * Returns offset by given index in TSVector,
+ * Returns offset by given index in TSVector2,
  * this function used when we need random access
  */
 int
-tsvector_getoffset(TSVector vec, int idx, WordEntry **we)
+tsvector2_getoffset(TSVector2 vec, int idx, WordEntry **we)
 {
 	int			offset = 0;
 	WordEntry  *entry;
@@ -790,12 +788,12 @@ tsvector_getoffset(TSVector vec, int idx, WordEntry **we)
 }
 
 /*
- * Add lexeme and its positions to tsvector and move dataoff (offset where
+ * Add lexeme and its positions to tsvector2 and move dataoff (offset where
  * data should be added) to new position.
  * Returns pointer to lexeme start
  */
 char *
-tsvector_addlexeme(TSVector tsv, int idx, int *dataoff,
+tsvector2_addlexeme(TSVector2 tsv, int idx, int *dataoff,
 				   char *lexeme, int lexeme_len, WordEntryPos *pos, int npos)
 {
 	int			stroff;
@@ -865,13 +863,13 @@ tsvector_addlexeme(TSVector tsv, int idx, int *dataoff,
 }
 
 /*
- * Build tsvector from array of lexemes.
+ * Build tsvector2 from array of lexemes.
  */
 Datum
-array_to_tsvector(PG_FUNCTION_ARGS)
+array_to_tsvector2(PG_FUNCTION_ARGS)
 {
 	ArrayType  *v = PG_GETARG_ARRAYTYPE_P(0);
-	TSVector	tsout;
+	TSVector2	tsout;
 	Datum	   *dlexemes;
 	bool	   *nulls;
 	int			nitems,
@@ -892,7 +890,7 @@ array_to_tsvector(PG_FUNCTION_ARGS)
 					 errmsg("lexeme array may not contain nulls")));
 	}
 
-	/* Sort and de-dup, because this is required for a valid tsvector. */
+	/* Sort and de-dup, because this is required for a valid tsvector2. */
 	if (nitems > 1)
 	{
 		qsort(dlexemes, nitems, sizeof(Datum), compare_text_lexemes);
@@ -914,8 +912,8 @@ array_to_tsvector(PG_FUNCTION_ARGS)
 	}
 	tslen = CALCDATASIZE(nitems, datalen);
 
-	/* Allocate and fill tsvector. */
-	tsout = (TSVector) palloc0(tslen);
+	/* Allocate and fill tsvector2. */
+	tsout = (TSVector2) palloc0(tslen);
 	SET_VARSIZE(tsout, tslen);
 	TS_SETCOUNT(tsout, nitems);
 
@@ -924,7 +922,7 @@ array_to_tsvector(PG_FUNCTION_ARGS)
 		char	   *lex = VARDATA(dlexemes[i]);
 		int			lex_len = VARSIZE(dlexemes[i]) - VARHDRSZ;
 
-		tsvector_addlexeme(tsout, i, &cur, lex, lex_len, NULL, 0);
+		tsvector2_addlexeme(tsout, i, &cur, lex, lex_len, NULL, 0);
 	}
 
 	PG_FREE_IF_COPY(v, 0);
@@ -932,12 +930,12 @@ array_to_tsvector(PG_FUNCTION_ARGS)
 }
 
 /*
- * ts_filter(): keep only lexemes with given weights in tsvector.
+ * ts_filter(): keep only lexemes with given weights in tsvector2.
  */
 Datum
-tsvector_filter(PG_FUNCTION_ARGS)
+tsvector2_filter(PG_FUNCTION_ARGS)
 {
-	TSVector	tsin = PG_GETARG_TSVECTOR(0),
+	TSVector2	tsin = PG_GETARG_TSVECTOR(0),
 				tsout;
 	ArrayType  *weights = PG_GETARG_ARRAYTYPE_P(1);
 	char	   *dataout;
@@ -989,7 +987,7 @@ tsvector_filter(PG_FUNCTION_ARGS)
 		}
 	}
 
-	tsout = (TSVector) palloc0(VARSIZE(tsin));
+	tsout = (TSVector2) palloc0(VARSIZE(tsin));
 	TS_SETCOUNT(tsout, TS_COUNT(tsin));
 	dataout = STRPTR(tsout);
 
@@ -1014,7 +1012,7 @@ tsvector_filter(PG_FUNCTION_ARGS)
 		if (!npos)
 			goto next;
 
-		lexout = tsvector_addlexeme(tsout, j++, &dataoff, lex, lex_len,
+		lexout = tsvector2_addlexeme(tsout, j++, &dataoff, lex, lex_len,
 									NULL, npos);
 		posout = POSDATAPTR(lexout, lex_len);
 		npos = 0;
@@ -1040,7 +1038,7 @@ next:
 
 /* Get max position in in1; we'll need this to offset in2's positions */
 static int
-get_maxpos(TSVector tsv)
+get_maxpos(TSVector2 tsv)
 {
 	int			i,
 				j,
@@ -1066,9 +1064,9 @@ get_maxpos(TSVector tsv)
 }
 
 Datum
-tsvector_concat(PG_FUNCTION_ARGS)
+tsvector2_concat(PG_FUNCTION_ARGS)
 {
-	TSVector	in1 = PG_GETARG_TSVECTOR(0),
+	TSVector2	in1 = PG_GETARG_TSVECTOR(0),
 				in2 = PG_GETARG_TSVECTOR(1),
 				out;
 	WordEntry  *ptr,
@@ -1097,7 +1095,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 	output_bytes = VARSIZE(in1) + VARSIZE(in2) + i1 * 2 + i2 * 2;
 	output_bytes += 4 * (i1 + i2) / TS_OFFSET_STRIDE;
 
-	out = (TSVector) palloc0(output_bytes);
+	out = (TSVector2) palloc0(output_bytes);
 	SET_VARSIZE(out, output_bytes);
 
 	/*
@@ -1115,8 +1113,8 @@ tsvector_concat(PG_FUNCTION_ARGS)
 	INITPOS(pos2);
 
 	/*
-	 * we will need max position from first tsvector to add it positions of
-	 * second tsvector
+	 * we will need max position from first tsvector2 to add it positions of
+	 * second tsvector2
 	 */
 	maxpos = get_maxpos(in1);
 
@@ -1132,7 +1130,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 
 		if (cmp < 0)
 		{						/* in1 first */
-			tsvector_addlexeme(out, i, &dataoff,
+			tsvector2_addlexeme(out, i, &dataoff,
 							   lex, lex_len,
 							   POSDATAPTR(lex, lex_len), ENTRY_NPOS(in1, ptr1));
 
@@ -1145,7 +1143,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 			char	   *new_lex;
 			WordEntry  *we = UNWRAP_ENTRY(in2, ptr2);
 
-			new_lex = tsvector_addlexeme(out, i, &dataoff, lex2, lex2_len, NULL, 0);
+			new_lex = tsvector2_addlexeme(out, i, &dataoff, lex2, lex2_len, NULL, 0);
 			if (we->npos > 0)
 			{
 				int			addlen;
@@ -1172,7 +1170,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 						npos2 = ENTRY_NPOS(in2, ptr2);
 			WordEntryPos *apos;
 
-			new_lex = tsvector_addlexeme(out, i, &dataoff, lex, lex_len, NULL, 0);
+			new_lex = tsvector2_addlexeme(out, i, &dataoff, lex, lex_len, NULL, 0);
 			apos = POSDATAPTR(new_lex, lex_len);
 
 			if (npos1 || npos2)
@@ -1183,20 +1181,20 @@ tsvector_concat(PG_FUNCTION_ARGS)
 				ptr = UNWRAP_ENTRY(out, ARRPTR(out) + i);
 				if (npos1)
 				{
-					/* add positions from left tsvector */
+					/* add positions from left tsvector2 */
 					addlen = add_pos(lex, UNWRAP_ENTRY(in1, ptr1), apos, 0, 0);
 					ptr->npos = addlen;
 
 					if (npos2)
 					{
-						/* add positions from right right tsvector */
+						/* add positions from right right tsvector2 */
 						addlen = add_pos(lex2, UNWRAP_ENTRY(in2, ptr2), apos, addlen, maxpos);
 						ptr->npos += addlen;
 					}
 				}
 				else			/* npos in second should be > 0 */
 				{
-					/* add positions from right tsvector */
+					/* add positions from right tsvector2 */
 					addlen = add_pos(lex2, UNWRAP_ENTRY(in2, ptr2), apos, 0, maxpos);
 					ptr->npos = addlen;
 				}
@@ -1218,7 +1216,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 		char	   *lex = STRPTR(in1) + pos1;
 		int			lex_len = ENTRY_LEN(in1, ptr1);
 
-		tsvector_addlexeme(out, i, &dataoff,
+		tsvector2_addlexeme(out, i, &dataoff,
 						   lex, lex_len,
 						   POSDATAPTR(lex, lex_len), ENTRY_NPOS(in1, ptr1));
 
@@ -1234,7 +1232,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 		int			lex_len = ENTRY_LEN(in2, ptr2),
 					npos = ENTRY_NPOS(in2, ptr2);
 
-		new_lex = tsvector_addlexeme(out, i, &dataoff, lex, lex_len, NULL, 0);
+		new_lex = tsvector2_addlexeme(out, i, &dataoff, lex, lex_len, NULL, 0);
 		if (npos > 0)
 		{
 			int			addlen;
@@ -1263,7 +1261,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 	if (dataoff > MAXSTRPOS)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("string is too long for tsvector (%d bytes, max %d bytes)", dataoff, MAXSTRPOS)));
+				 errmsg("string is too long for tsvector2 (%d bytes, max %d bytes)", dataoff, MAXSTRPOS)));
 
 	/*
 	 * Adjust sizes (asserting that we didn't overrun the original estimates)
@@ -1282,7 +1280,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compare two strings by tsvector rules.
+ * Compare two strings by tsvector2 rules.
  *
  * if isPrefix = true then it returns zero value iff b has prefix a
  */
@@ -1394,7 +1392,7 @@ checkclass_str(WordEntryPos *pv, int npos, QueryOperand *val,
 
 /*
  * Removes duplicate pos entries. We can't use uniquePos() from
- * tsvector.c because array might be longer than MAXENTRYPOS
+ * tsvector2.c because array might be longer than MAXENTRYPOS
  *
  * Returns new length.
  */
@@ -1444,7 +1442,7 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 	while (StopLow < StopHigh)
 	{
 		StopMiddle = StopLow + (StopHigh - StopLow) / 2;
-		lexeme = tsvector_getlexeme(chkval->vec, StopMiddle, &entry);
+		lexeme = tsvector2_getlexeme(chkval->vec, StopMiddle, &entry);
 
 		Assert(!entry->hasoff);
 		difference = tsCompareString(chkval->operand + val->distance,
@@ -1485,7 +1483,7 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 			int			cmp;
 			WordEntryPos *pv;
 
-			lexeme = tsvector_getlexeme(chkval->vec, StopMiddle, &entry);
+			lexeme = tsvector2_getlexeme(chkval->vec, StopMiddle, &entry);
 
 			Assert(!entry->hasoff);
 			pv = POSDATAPTR(lexeme, entry->len);
@@ -1591,7 +1589,7 @@ TS_phrase_output(ExecPhraseData *data,
 
 		/*
 		 * Fetch current values to compare.  WEP_GETPOS() is needed because
-		 * ExecPhraseData->data can point to a tsvector's WordEntryPosVector.
+		 * ExecPhraseData->data can point to a tsvector2's WordEntryPosVector.
 		 */
 		if (Lindex < Ldata->npos)
 			Lpos = WEP_GETPOS(Ldata->pos[Lindex]) + Loffset;
@@ -2061,7 +2059,7 @@ ts_match_qv(PG_FUNCTION_ARGS)
 Datum
 ts_match_vq(PG_FUNCTION_ARGS)
 {
-	TSVector	val = PG_GETARG_TSVECTOR(0);
+	TSVector2	val = PG_GETARG_TSVECTOR(0);
 	TSQuery		query = PG_GETARG_TSQUERY(1);
 	CHKVAL		chkval;
 	bool		result;
@@ -2091,11 +2089,11 @@ ts_match_vq(PG_FUNCTION_ARGS)
 Datum
 ts_match_tt(PG_FUNCTION_ARGS)
 {
-	TSVector	vector;
+	TSVector2	vector;
 	TSQuery		query;
 	bool		res;
 
-	vector = DatumGetTSVector(DirectFunctionCall1(to_tsvector,
+	vector = DatumGetTSVector(DirectFunctionCall1(to_tsvector2,
 												  PG_GETARG_DATUM(0)));
 	query = DatumGetTSQuery(DirectFunctionCall1(plainto_tsquery,
 												PG_GETARG_DATUM(1)));
@@ -2113,11 +2111,11 @@ ts_match_tt(PG_FUNCTION_ARGS)
 Datum
 ts_match_tq(PG_FUNCTION_ARGS)
 {
-	TSVector	vector;
+	TSVector2	vector;
 	TSQuery		query = PG_GETARG_TSQUERY(1);
 	bool		res;
 
-	vector = DatumGetTSVector(DirectFunctionCall1(to_tsvector,
+	vector = DatumGetTSVector(DirectFunctionCall1(to_tsvector2,
 												  PG_GETARG_DATUM(0)));
 
 	res = DatumGetBool(DirectFunctionCall2(ts_match_vq,
@@ -2136,7 +2134,7 @@ ts_match_tq(PG_FUNCTION_ARGS)
 
 
 /*
- * Returns the number of positions in value 'wptr' within tsvector 'txt',
+ * Returns the number of positions in value 'wptr' within tsvector2 'txt',
  * that have a weight equal to one of the weights in 'weight' bitmask.
  */
 static int
@@ -2163,7 +2161,7 @@ check_weight(char *lexeme, WordEntry *wptr, int8 weight)
 					t, (e)->len, false))
 
 static void
-insertStatEntry(MemoryContext persistentContext, TSVectorStat *stat, TSVector txt, uint32 off)
+insertStatEntry(MemoryContext persistentContext, TSVectorStat *stat, TSVector2 txt, uint32 off)
 {
 	WordEntry  *we;
 	StatEntry  *node = stat->root,
@@ -2173,7 +2171,7 @@ insertStatEntry(MemoryContext persistentContext, TSVectorStat *stat, TSVector tx
 	uint32		depth = 1;
 	char	   *lexeme;
 
-	lexeme = tsvector_getlexeme(txt, off, &we);
+	lexeme = tsvector2_getlexeme(txt, off, &we);
 
 	Assert(!we->hasoff);
 	if (stat->weight == 0)
@@ -2233,7 +2231,7 @@ insertStatEntry(MemoryContext persistentContext, TSVectorStat *stat, TSVector tx
 }
 
 static void
-chooseNextStatEntry(MemoryContext persistentContext, TSVectorStat *stat, TSVector txt,
+chooseNextStatEntry(MemoryContext persistentContext, TSVectorStat *stat, TSVector2 txt,
 					uint32 low, uint32 high, uint32 offset)
 {
 	uint32		pos;
@@ -2262,13 +2260,13 @@ chooseNextStatEntry(MemoryContext persistentContext, TSVectorStat *stat, TSVecto
  *
  *	 SELECT ts_stat(vector_column) FROM vector_table;
  *
- *	where vector_column is a tsvector-type column in vector_table.
+ *	where vector_column is a tsvector2-type column in vector_table.
  */
 
 static TSVectorStat *
 ts_accum(MemoryContext persistentContext, TSVectorStat *stat, Datum data)
 {
-	TSVector	txt = DatumGetTSVector(data);
+	TSVector2	txt = DatumGetTSVector(data);
 	uint32		i,
 				nbit = 0,
 				offset,
@@ -2283,7 +2281,7 @@ ts_accum(MemoryContext persistentContext, TSVectorStat *stat, Datum data)
 	/* simple check of correctness */
 	if (txt == NULL || count == 0)
 	{
-		if (txt && txt != (TSVector) DatumGetPointer(data))
+		if (txt && txt != (TSVector2) DatumGetPointer(data))
 			pfree(txt);
 		return stat;
 	}
@@ -2458,7 +2456,7 @@ ts_stat_sql(MemoryContext persistentContext, text *txt, text *ws)
 						   TSVECTOROID))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("ts_stat query must return one tsvector column")));
+				 errmsg("ts_stat query must return one tsvector2 column")));
 
 	stat = MemoryContextAllocZero(persistentContext, sizeof(TSVectorStat));
 	stat->maxdepth = 1;
@@ -2576,35 +2574,35 @@ ts_stat2(PG_FUNCTION_ARGS)
 
 
 /*
- * Triggers for automatic update of a tsvector column from text column(s)
+ * Triggers for automatic update of a tsvector2 column from text column(s)
  *
  * Trigger arguments are either
- *		name of tsvector col, name of tsconfig to use, name(s) of text col(s)
- *		name of tsvector col, name of regconfig col, name(s) of text col(s)
+ *		name of tsvector2 col, name of tsconfig to use, name(s) of text col(s)
+ *		name of tsvector2 col, name of regconfig col, name(s) of text col(s)
  * ie, tsconfig can either be specified by name, or indirectly as the
  * contents of a regconfig field in the row.  If the name is used, it must
  * be explicitly schema-qualified.
  */
 Datum
-tsvector_update_trigger_byid(PG_FUNCTION_ARGS)
+tsvector2_update_trigger_byid(PG_FUNCTION_ARGS)
 {
-	return tsvector_update_trigger(fcinfo, false);
+	return tsvector2_update_trigger(fcinfo, false);
 }
 
 Datum
-tsvector_update_trigger_bycolumn(PG_FUNCTION_ARGS)
+tsvector2_update_trigger_bycolumn(PG_FUNCTION_ARGS)
 {
-	return tsvector_update_trigger(fcinfo, true);
+	return tsvector2_update_trigger(fcinfo, true);
 }
 
 static Datum
-tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column)
+tsvector2_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 {
 	TriggerData *trigdata;
 	Trigger    *trigger;
 	Relation	rel;
 	HeapTuple	rettuple = NULL;
-	int			tsvector_attr_num,
+	int			tsvector2_attr_num,
 				i;
 	ParsedText	prs;
 	Datum		datum;
@@ -2614,40 +2612,40 @@ tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 
 	/* Check call context */
 	if (!CALLED_AS_TRIGGER(fcinfo)) /* internal error */
-		elog(ERROR, "tsvector_update_trigger: not fired by trigger manager");
+		elog(ERROR, "tsvector2_update_trigger: not fired by trigger manager");
 
 	trigdata = (TriggerData *) fcinfo->context;
 	if (!TRIGGER_FIRED_FOR_ROW(trigdata->tg_event))
-		elog(ERROR, "tsvector_update_trigger: must be fired for row");
+		elog(ERROR, "tsvector2_update_trigger: must be fired for row");
 	if (!TRIGGER_FIRED_BEFORE(trigdata->tg_event))
-		elog(ERROR, "tsvector_update_trigger: must be fired BEFORE event");
+		elog(ERROR, "tsvector2_update_trigger: must be fired BEFORE event");
 
 	if (TRIGGER_FIRED_BY_INSERT(trigdata->tg_event))
 		rettuple = trigdata->tg_trigtuple;
 	else if (TRIGGER_FIRED_BY_UPDATE(trigdata->tg_event))
 		rettuple = trigdata->tg_newtuple;
 	else
-		elog(ERROR, "tsvector_update_trigger: must be fired for INSERT or UPDATE");
+		elog(ERROR, "tsvector2_update_trigger: must be fired for INSERT or UPDATE");
 
 	trigger = trigdata->tg_trigger;
 	rel = trigdata->tg_relation;
 
 	if (trigger->tgnargs < 3)
-		elog(ERROR, "tsvector_update_trigger: arguments must be tsvector_field, ts_config, text_field1, ...)");
+		elog(ERROR, "tsvector2_update_trigger: arguments must be tsvector2_field, ts_config, text_field1, ...)");
 
-	/* Find the target tsvector column */
-	tsvector_attr_num = SPI_fnumber(rel->rd_att, trigger->tgargs[0]);
-	if (tsvector_attr_num == SPI_ERROR_NOATTRIBUTE)
+	/* Find the target tsvector2 column */
+	tsvector2_attr_num = SPI_fnumber(rel->rd_att, trigger->tgargs[0]);
+	if (tsvector2_attr_num == SPI_ERROR_NOATTRIBUTE)
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_COLUMN),
-				 errmsg("tsvector column \"%s\" does not exist",
+				 errmsg("tsvector2 column \"%s\" does not exist",
 						trigger->tgargs[0])));
 	/* This will effectively reject system columns, so no separate test: */
-	if (!IsBinaryCoercible(SPI_gettypeid(rel->rd_att, tsvector_attr_num),
+	if (!IsBinaryCoercible(SPI_gettypeid(rel->rd_att, tsvector2_attr_num),
 						   TSVECTOROID))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
-				 errmsg("column \"%s\" is not of tsvector type",
+				 errmsg("column \"%s\" is not of tsvector2 type",
 						trigger->tgargs[0])));
 
 	/* Find the configuration to use */
@@ -2725,26 +2723,26 @@ tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 			pfree(txt);
 	}
 
-	/* make tsvector value */
+	/* make tsvector2 value */
 	if (prs.curwords)
 	{
-		datum = PointerGetDatum(make_tsvector(&prs));
+		datum = PointerGetDatum(make_tsvector2(&prs));
 		isnull = false;
 		rettuple = heap_modify_tuple_by_cols(rettuple, rel->rd_att,
-											 1, &tsvector_attr_num,
+											 1, &tsvector2_attr_num,
 											 &datum, &isnull);
 		pfree(DatumGetPointer(datum));
 	}
 	else
 	{
-		TSVector	out = palloc(CALCDATASIZE(0, 0));
+		TSVector2	out = palloc(CALCDATASIZE(0, 0));
 
 		SET_VARSIZE(out, CALCDATASIZE(0, 0));
 		TS_SETCOUNT(out, 0);
 		datum = PointerGetDatum(out);
 		isnull = false;
 		rettuple = heap_modify_tuple_by_cols(rettuple, rel->rd_att,
-											 1, &tsvector_attr_num,
+											 1, &tsvector2_attr_num,
 											 &datum, &isnull);
 		pfree(prs.words);
 	}

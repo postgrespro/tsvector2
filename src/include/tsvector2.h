@@ -1,11 +1,10 @@
 /*-------------------------------------------------------------------------
  *
- * ts_type.h
- *	  Definitions for the tsvector and tsquery types
+ * tsvector2.h
+ *	  Definitions for the tsvector2 and tsquery types
  *
  * Copyright (c) 1998-2018, PostgreSQL Global Development Group
- *
- * src/include/tsearch/ts_type.h
+ * Copyright (c) 2018, PostgresPro
  *
  *-------------------------------------------------------------------------
  */
@@ -17,9 +16,9 @@
 
 
 /*
- * TSVector type.
+ * TSVector2 type.
  *
- * Structure of tsvector datatype:
+ * Structure of tsvector2 datatype:
  * 1) standard varlena header
  * 2) int32		size - number of lexemes (WordEntry array entries)
  * 3) Array of WordEntry - one per lexeme; must be sorted according to
@@ -35,7 +34,7 @@
  *
  * The positions for each lexeme must be sorted.
  *
- * Note, tsvector functions believe that sizeof(WordEntry) == 4
+ * Note, tsvector2 functions believe that sizeof(WordEntry) == 4
  */
 
 #define TS_OFFSET_STRIDE 4
@@ -83,28 +82,28 @@ typedef uint16 WordEntryPos;
 #define MAXNUMPOS	(256)
 #define LIMITPOS(x) ( ( (x) >= MAXENTRYPOS ) ? (MAXENTRYPOS-1) : (x) )
 
-/* This struct represents a complete tsvector datum */
+/* This struct represents a complete tsvector2 datum */
 typedef struct
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int32		size_;			/* flags and lexemes count */
 	WordEntry	entries[FLEXIBLE_ARRAY_MEMBER];
 	/* lexemes follow the entries[] array */
-} TSVectorData;
+} TSVectorData2;
 
-typedef TSVectorData *TSVector;
+typedef TSVectorData2 *TSVector2;
 
 #define TS_FLAG_STRETCHED 0x80000000
 #define TS_COUNT(t) ((t)->size_ & 0x0FFFFFFF)
 #define TS_SETCOUNT(t,c) ((t)->size_ = (c) | TS_FLAG_STRETCHED)
 
-#define DATAHDRSIZE (offsetof(TSVectorData, entries))
+#define DATAHDRSIZE (offsetof(TSVectorData2, entries))
 #define CALCDATASIZE(nentries, lenstr) (DATAHDRSIZE + (nentries) * sizeof(WordEntry) + (lenstr) )
 
-/* pointer to start of a tsvector's WordEntry array */
+/* pointer to start of a tsvector2's WordEntry array */
 #define ARRPTR(x)	( (x)->entries )
 
-/* pointer to start of a tsvector's lexeme storage */
+/* pointer to start of a tsvector2's lexeme storage */
 #define STRPTR(x)	( (char *) &(x)->entries[TS_COUNT(x)] )
 
 /* for WordEntry with offset return its WordEntry with other properties */
@@ -121,7 +120,7 @@ typedef TSVectorData *TSVector;
 /* pointer to start of positions */
 #define POSDATAPTR(lex, len) ((WordEntryPos *) (lex + SHORTALIGN(len)))
 
-/* set default offset in tsvector data */
+/* set default offset in tsvector2 data */
 #define INITPOS(p) ((p) = sizeof(WordEntry))
 
 /* increment entry and offset by given WordEntry */
@@ -140,7 +139,7 @@ do { \
 		(p) = INTALIGN(p) + sizeof(WordEntry);			\
 } while (0);
 
-/* used to calculate tsvector size in in tsvector constructors */
+/* used to calculate tsvector2 size in in tsvector2 constructors */
 #define INCRSIZE(s,i,l,n) /* size,index,len,npos */		\
 do {													\
 	if ((i) % TS_OFFSET_STRIDE == 0)					\
@@ -155,10 +154,10 @@ do {													\
  * fmgr interface macros
  */
 
-TSVector	tsvector_upgrade(Datum orig, bool copy);
+TSVector2	tsvector2_upgrade(Datum orig, bool copy);
 
-#define DatumGetTSVector(X)			tsvector_upgrade((X), false)
-#define DatumGetTSVectorCopy(X)		tsvector_upgrade((X), true)
+#define DatumGetTSVector(X)			tsvector2_upgrade((X), false)
+#define DatumGetTSVectorCopy(X)		tsvector2_upgrade((X), true)
 #define TSVectorGetDatum(X)			PointerGetDatum(X)
 #define PG_GETARG_TSVECTOR(n)		DatumGetTSVector(PG_GETARG_DATUM(n))
 #define PG_GETARG_TSVECTOR_COPY(n)	DatumGetTSVectorCopy(PG_GETARG_DATUM(n))
@@ -281,13 +280,13 @@ typedef TSQueryData *TSQuery;
 #define PG_GETARG_TSQUERY_COPY(n)	DatumGetTSQueryCopy(PG_GETARG_DATUM(n))
 #define PG_RETURN_TSQUERY(x)		return TSQueryGetDatum(x)
 
-int			tsvector_getoffset(TSVector vec, int idx, WordEntry **we);
-char *tsvector_addlexeme(TSVector tsv, int idx, int *dataoff,
+int			tsvector2_getoffset(TSVector2 vec, int idx, WordEntry **we);
+char *tsvector2_addlexeme(TSVector2 tsv, int idx, int *dataoff,
 				   char *lexeme, int lexeme_len, WordEntryPos *pos, int npos);
 
-/* Returns lexeme and its entry by given index from TSVector */
+/* Returns lexeme and its entry by given index from TSVector2 */
 inline static char *
-tsvector_getlexeme(TSVector vec, int idx, WordEntry **we)
+tsvector2_getlexeme(TSVector2 vec, int idx, WordEntry **we)
 {
 	Assert(idx >= 0 && idx < TS_COUNT(vec));
 
@@ -296,7 +295,7 @@ tsvector_getlexeme(TSVector vec, int idx, WordEntry **we)
 	 * always should be used with we->len
 	 */
 	Assert(we != NULL);
-	return STRPTR(vec) + tsvector_getoffset(vec, idx, we);
+	return STRPTR(vec) + tsvector2_getoffset(vec, idx, we);
 }
 
 #endif							/* _PG_TSTYPE_H_ */
