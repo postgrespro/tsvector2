@@ -85,17 +85,13 @@ typedef uint16 WordEntryPos;
 /* This struct represents a complete tsvector2 datum */
 typedef struct
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	int32		size_;			/* flags and lexemes count */
+	int32		vl_len;		/* varlena header (do not touch directly!) */
+	int32		size;			/* flags and lexemes count */
 	WordEntry2	entries[FLEXIBLE_ARRAY_MEMBER];
 	/* lexemes follow the entries[] array */
 } TSVectorData2;
 
 typedef TSVectorData2 *TSVector2;
-
-#define TS_FLAG_STRETCHED 0x80000000
-#define TS_COUNT(t) ((t)->size_ & 0x0FFFFFFF)
-#define TS_SETCOUNT(t,c) ((t)->size_ = (c) | TS_FLAG_STRETCHED)
 
 #define DATAHDRSIZE (offsetof(TSVectorData2, entries))
 #define CALCDATASIZE(nentries, lenstr) (DATAHDRSIZE + (nentries) * sizeof(WordEntry2) + (lenstr) )
@@ -104,7 +100,7 @@ typedef TSVectorData2 *TSVector2;
 #define tsvector2_entries(x)	( (x)->entries )
 
 /* pointer to start of a tsvector2's lexeme storage */
-#define tsvector2_storage(x)	( (char *) &(x)->entries[TS_COUNT(x)] )
+#define tsvector2_storage(x)	( (char *) &(x)->entries[x->size] )
 
 /* for WordEntry2 with offset return its WordEntry2 with other properties */
 #define UNWRAP_ENTRY(x,we) \
@@ -118,7 +114,7 @@ typedef TSVectorData2 *TSVector2;
 #define ENTRY_LEN(x,we) (UNWRAP_ENTRY(x,we)->len)
 
 /* pointer to start of positions */
-#define POSDATAPTR(lex, len) ((WordEntryPos *) (lex + SHORTALIGN(len)))
+#define get_lexeme_positions(lex, len) ((WordEntryPos *) (lex + SHORTALIGN(len)))
 
 /* set default offset in tsvector2 data */
 #define INITPOS(p) ((p) = sizeof(WordEntry2))
@@ -135,7 +131,7 @@ do { \
 	(w)++;												\
 	Assert(!y->hasoff);									\
 	(p) += SHORTALIGN(y->len) + y->npos * sizeof(WordEntryPos); \
-	if ((w) - ARRPTR(x) < TS_COUNT(x) && w->hasoff)		\
+	if ((w) - ARRPTR(x) < x->size && w->hasoff)		\
 		(p) = INTALIGN(p) + sizeof(WordEntry2);			\
 } while (0);
 
@@ -288,7 +284,7 @@ char *tsvector2_addlexeme(TSVector2 tsv, int idx, int *dataoff,
 inline static char *
 tsvector2_getlexeme(TSVector2 vec, int idx, WordEntry2 **we)
 {
-	Assert(idx >= 0 && idx < TS_COUNT(vec));
+	Assert(idx >= 0 && idx < vec->size);
 
 	/*
 	 * we do not allow we == NULL because returned lexeme is not \0 ended, and

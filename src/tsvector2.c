@@ -309,7 +309,7 @@ tsvector2out(PG_FUNCTION_ARGS)
 	int32		i,
 				lenbuf = 0,
 				pp,
-				tscount = TS_COUNT(out);
+				tscount = out->size;
 	uint32		pos;
 	WordEntry2  *ptr = tsvector2_entries(out);
 	char	   *curbegin,
@@ -357,7 +357,7 @@ tsvector2out(PG_FUNCTION_ARGS)
 			WordEntryPos *wptr;
 
 			*curout++ = ':';
-			wptr = POSDATAPTR(curbegin, lex_len);
+			wptr = get_lexeme_positions(curbegin, lex_len);
 			while (pp)
 			{
 				curout += sprintf(curout, "%d", WEP_GETPOS(*wptr));
@@ -415,10 +415,10 @@ tsvector2send(PG_FUNCTION_ARGS)
 	WordEntry2  *weptr = tsvector2_entries(vec);
 
 	pq_begintypsend(&buf);
-	pq_sendint32(&buf, TS_COUNT(vec));
+	pq_sendint32(&buf, vec->size);
 
 	INITPOS(pos);
-	for (i = 0; i < TS_COUNT(vec); i++)
+	for (i = 0; i < vec->size; i++)
 	{
 		char	   *lexeme = tsvector2_storage(vec) + pos;
 		int			npos = ENTRY_NPOS(vec, weptr),
@@ -434,7 +434,7 @@ tsvector2send(PG_FUNCTION_ARGS)
 
 		if (npos > 0)
 		{
-			WordEntryPos *wepptr = POSDATAPTR(lexeme, lex_len);
+			WordEntryPos *wepptr = get_lexeme_positions(lexeme, lex_len);
 
 			for (j = 0; j < npos; j++)
 				pq_sendint16(&buf, wepptr[j]);
@@ -518,7 +518,7 @@ tsvector2recv(PG_FUNCTION_ARGS)
 			WordEntryPos *wepptr;
 			int			j;
 
-			wepptr = POSDATAPTR(lexeme_out, lex_len);
+			wepptr = get_lexeme_positions(lexeme_out, lex_len);
 			for (j = 0; j < npos; j++)
 			{
 				wepptr[j] = (WordEntryPos) pq_getmsgint(buf, sizeof(WordEntryPos));
@@ -534,7 +534,7 @@ tsvector2recv(PG_FUNCTION_ARGS)
 	SET_VARSIZE(vec, hdrlen + datalen);
 
 	if (needSort)
-		qsort_arg((void *) tsvector2_entries(vec), TS_COUNT(vec), sizeof(WordEntry2),
+		qsort_arg((void *) tsvector2_entries(vec), vec->size, sizeof(WordEntry2),
 				  compareentry, (void *) vec);
 
 	PG_RETURN_TSVECTOR(vec);

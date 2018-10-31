@@ -78,9 +78,9 @@ silly_cmp_tsvector2(const TSVector2 a, const TSVector2 b)
 		return -1;
 	else if (VARSIZE(a) > VARSIZE(b))
 		return 1;
-	else if (TS_COUNT(a) < TS_COUNT(b))
+	else if (a->size < b->size)
 		return -1;
-	else if (TS_COUNT(a) > TS_COUNT(b))
+	else if (a->size > b->size)
 		return 1;
 	else
 	{
@@ -94,7 +94,7 @@ silly_cmp_tsvector2(const TSVector2 a, const TSVector2 b)
 		INITPOS(pos1);
 		INITPOS(pos2);
 
-		for (i = 0; i < TS_COUNT(a); i++)
+		for (i = 0; i < a->size; i++)
 		{
 			char	   *lex1 = tsvector2_storage(a) + pos1,
 					   *lex2 = tsvector2_storage(b) + pos2;
@@ -115,8 +115,8 @@ silly_cmp_tsvector2(const TSVector2 a, const TSVector2 b)
 						   *bp;
 				int			j;
 
-				ap = POSDATAPTR(lex1, len1);
-				bp = POSDATAPTR(lex2, len2);
+				ap = get_lexeme_positions(lex1, len1);
+				bp = get_lexeme_positions(lex2, len2);
 
 				if (npos1 != npos2)
 					return (npos1 > npos2) ? -1 : 1;
@@ -177,7 +177,7 @@ tsvector2_strip(PG_FUNCTION_ARGS)
 				len = 0;
 	WordEntry2  *entryin = tsvector2_entries(in);
 
-	count = TS_COUNT(in);
+	count = in->size;
 	for (i = 0; i < count; i++)
 		INCRSIZE(len, i, ENTRY_LEN(in, tsvector2_entries(in) + i), 0);
 
@@ -204,7 +204,7 @@ Datum
 tsvector2_length(PG_FUNCTION_ARGS)
 {
 	TSVector2	in = PG_GETARG_TSVECTOR(0);
-	int32		ret = TS_COUNT(in);
+	int32		ret = in->size;
 
 	PG_FREE_IF_COPY(in, 0);
 	PG_RETURN_INT32(ret);
@@ -249,14 +249,14 @@ tsvector2_setweight(PG_FUNCTION_ARGS)
 	weptr = tsvector2_entries(out);
 
 	INITPOS(pos);
-	for (i = 0; i < TS_COUNT(out); i++)
+	for (i = 0; i < out->size; i++)
 	{
 		int			j,
 					npos = ENTRY_NPOS(out, weptr);
 
 		if (npos)
 		{
-			WordEntryPos *p = POSDATAPTR(tsvector2_storage(out) + pos, ENTRY_LEN(out, weptr));
+			WordEntryPos *p = get_lexeme_positions(tsvector2_storage(out) + pos, ENTRY_LEN(out, weptr));
 
 			for (j = 0; j < npos; j++)
 				WEP_SETWEIGHT(p[j], w);
@@ -343,7 +343,7 @@ tsvector2_setweight_by_filter(PG_FUNCTION_ARGS)
 			WordEntry2  *we;
 			char	   *lexeme = tsvector2_getlexeme(tsout, lex_idx, &we);
 
-			WordEntryPos *p = POSDATAPTR(lexeme, we->len);
+			WordEntryPos *p = get_lexeme_positions(lexeme, we->len);
 
 			for (j = 0; j < npos; j++)
 				WEP_SETWEIGHT(p[j], weight);
@@ -373,7 +373,7 @@ add_pos(char *src, WordEntry2 *srcptr,
 	uint16		clen = from;
 	int			i;
 	uint16		slen = srcptr->npos;
-	WordEntryPos *spos = POSDATAPTR(src, srcptr->len);
+	WordEntryPos *spos = get_lexeme_positions(src, srcptr->len);
 
 	Assert(!srcptr->hasoff);
 	for (i = 0;
@@ -398,7 +398,7 @@ static int
 tsvector2_bsearch(const TSVector2 tsv, char *lexeme, int lexeme_len)
 {
 	int			StopLow = 0,
-				StopHigh = TS_COUNT(tsv),
+				StopHigh = tsv->size,
 				StopMiddle,
 				cmp;
 
@@ -498,14 +498,14 @@ tsvector2_delete_by_indices(TSVector2 tsv, int *indices_to_delete,
 	tsout = (TSVector2) palloc0(VARSIZE(tsv));
 
 	/* This count must be correct because tsvector2_storage(tsout) relies on it. */
-	TS_SETCOUNT(tsout, TS_COUNT(tsv) - indices_count);
+	TS_SETCOUNT(tsout, tsv->size - indices_count);
 
 	/*
 	 * Copy tsv to tsout, skipping lexemes listed in indices_to_delete.
 	 */
 
 	INITPOS(pos);
-	for (i = j = k = 0; i < TS_COUNT(tsv); i++)
+	for (i = j = k = 0; i < tsv->size; i++)
 	{
 		char	   *lex = tsvector2_storage(tsv) + pos;
 		int			lex_len = ENTRY_LEN(tsv, ptr);
@@ -522,7 +522,7 @@ tsvector2_delete_by_indices(TSVector2 tsv, int *indices_to_delete,
 		}
 
 		tsvector2_addlexeme(tsout, j++, &curoff, lex, lex_len,
-						   POSDATAPTR(lex, lex_len), ENTRY_NPOS(tsv, ptr));
+						   get_lexeme_positions(lex, lex_len), ENTRY_NPOS(tsv, ptr));
 
 next:
 		INCRPTR(tsv, ptr, pos);
@@ -534,7 +534,7 @@ next:
 	 * estimation of tsout's size is wrong.
 	 */
 	Assert(k == indices_count);
-	SET_VARSIZE(tsout, CALCDATASIZE(TS_COUNT(tsout), curoff));
+	SET_VARSIZE(tsout, CALCDATASIZE(tsout->size, curoff));
 	return tsout;
 }
 
@@ -656,7 +656,7 @@ tsvector2_unnest(PG_FUNCTION_ARGS)
 	tsin = (TSVector2) linitial(funcctx->user_fctx);
 	pos = intVal(lsecond(funcctx->user_fctx));
 
-	if (funcctx->call_cntr < TS_COUNT(tsin))
+	if (funcctx->call_cntr < tsin->size)
 	{
 		WordEntry2  *entry = tsvector2_entries(tsin) + funcctx->call_cntr;
 		char	   *data = tsvector2_storage(tsin);
@@ -672,7 +672,7 @@ tsvector2_unnest(PG_FUNCTION_ARGS)
 
 		if (npos)
 		{
-			WordEntryPos *apos = POSDATAPTR(data + pos, lex_len);
+			WordEntryPos *apos = get_lexeme_positions(data + pos, lex_len);
 			Datum	   *positions;
 			Datum	   *weights;
 			char		weight;
@@ -727,17 +727,17 @@ tsvector2_to_array(PG_FUNCTION_ARGS)
 	ArrayType  *array;
 	long		pos;
 
-	elements = palloc(TS_COUNT(tsin) * sizeof(Datum));
+	elements = palloc(tsin->size * sizeof(Datum));
 
 	INITPOS(pos);
-	for (i = 0; i < TS_COUNT(tsin); i++)
+	for (i = 0; i < tsin->size; i++)
 	{
 		elements[i] = PointerGetDatum(
 									  cstring_to_text_with_len(tsvector2_storage(tsin) + pos, ENTRY_LEN(tsin, entry)));
 		INCRPTR(tsin, entry, pos);
 	}
 
-	array = construct_array(elements, TS_COUNT(tsin), TEXTOID, -1, false, 'i');
+	array = construct_array(elements, tsin->size, TEXTOID, -1, false, 'i');
 
 	pfree(elements);
 	PG_FREE_IF_COPY(tsin, 0);
@@ -988,11 +988,11 @@ tsvector2_filter(PG_FUNCTION_ARGS)
 	}
 
 	tsout = (TSVector2) palloc0(VARSIZE(tsin));
-	TS_SETCOUNT(tsout, TS_COUNT(tsin));
+	TS_SETCOUNT(tsout, tsin->size);
 	dataout = tsvector2_storage(tsout);
 
 	INITPOS(pos);
-	for (i = j = 0; i < TS_COUNT(tsin); i++)
+	for (i = j = 0; i < tsin->size; i++)
 	{
 		WordEntryPos *posin,
 				   *posout;
@@ -1002,7 +1002,7 @@ tsvector2_filter(PG_FUNCTION_ARGS)
 		char	   *lex = tsvector2_storage(tsin) + pos,
 				   *lexout;
 
-		posin = POSDATAPTR(lex, lex_len);
+		posin = get_lexeme_positions(lex, lex_len);
 		for (k = 0; k < ENTRY_NPOS(tsin, ptr); k++)
 		{
 			if (mask & (1 << WEP_GETWEIGHT(posin[k])))
@@ -1014,7 +1014,7 @@ tsvector2_filter(PG_FUNCTION_ARGS)
 
 		lexout = tsvector2_addlexeme(tsout, j++, &dataoff, lex, lex_len,
 									NULL, npos);
-		posout = POSDATAPTR(lexout, lex_len);
+		posout = get_lexeme_positions(lexout, lex_len);
 		npos = 0;
 		for (k = 0; k < ENTRY_NPOS(tsin, ptr); k++)
 		{
@@ -1030,7 +1030,7 @@ next:
 	if (dataout != tsvector2_storage(tsout))
 		memmove(tsvector2_storage(tsout), dataout, dataoff);
 
-	SET_VARSIZE(tsout, CALCDATASIZE(TS_COUNT(tsout), dataoff));
+	SET_VARSIZE(tsout, CALCDATASIZE(tsout->size, dataoff));
 
 	PG_FREE_IF_COPY(tsin, 0);
 	PG_RETURN_POINTER(tsout);
@@ -1048,9 +1048,9 @@ get_maxpos(TSVector2 tsv)
 	WordEntryPos *apos;
 
 	INITPOS(pos);
-	for (i = 0; i < TS_COUNT(tsv); i++)
+	for (i = 0; i < tsv->size; i++)
 	{
-		apos = POSDATAPTR(tsvector2_storage(tsv) + pos, ENTRY_LEN(tsv, ptr));
+		apos = get_lexeme_positions(tsvector2_storage(tsv) + pos, ENTRY_LEN(tsv, ptr));
 		for (j = 0; j < ENTRY_NPOS(tsv, ptr); j++)
 		{
 			if (WEP_GETPOS(apos[j]) > maxpos)
@@ -1084,8 +1084,8 @@ tsvector2_concat(PG_FUNCTION_ARGS)
 
 	ptr1 = tsvector2_entries(in1);
 	ptr2 = tsvector2_entries(in2);
-	i1 = TS_COUNT(in1);
-	i2 = TS_COUNT(in2);
+	i1 = in1->size;
+	i2 = in2->size;
 
 	/*
 	 * Conservative estimate of space needed.  We might need all the data in
@@ -1132,7 +1132,7 @@ tsvector2_concat(PG_FUNCTION_ARGS)
 		{						/* in1 first */
 			tsvector2_addlexeme(out, i, &dataoff,
 							   lex, lex_len,
-							   POSDATAPTR(lex, lex_len), ENTRY_NPOS(in1, ptr1));
+							   get_lexeme_positions(lex, lex_len), ENTRY_NPOS(in1, ptr1));
 
 			INCRPTR(in1, ptr1, pos1);
 			i1--;
@@ -1147,7 +1147,7 @@ tsvector2_concat(PG_FUNCTION_ARGS)
 			if (we->npos > 0)
 			{
 				int			addlen;
-				WordEntryPos *apos = POSDATAPTR(new_lex, lex2_len);
+				WordEntryPos *apos = get_lexeme_positions(new_lex, lex2_len);
 
 				addlen = add_pos(lex2, we, apos, 0, maxpos);
 				if (addlen > 0)
@@ -1171,7 +1171,7 @@ tsvector2_concat(PG_FUNCTION_ARGS)
 			WordEntryPos *apos;
 
 			new_lex = tsvector2_addlexeme(out, i, &dataoff, lex, lex_len, NULL, 0);
-			apos = POSDATAPTR(new_lex, lex_len);
+			apos = get_lexeme_positions(new_lex, lex_len);
 
 			if (npos1 || npos2)
 			{
@@ -1218,7 +1218,7 @@ tsvector2_concat(PG_FUNCTION_ARGS)
 
 		tsvector2_addlexeme(out, i, &dataoff,
 						   lex, lex_len,
-						   POSDATAPTR(lex, lex_len), ENTRY_NPOS(in1, ptr1));
+						   get_lexeme_positions(lex, lex_len), ENTRY_NPOS(in1, ptr1));
 
 		INCRPTR(in1, ptr1, pos1);
 		i++;
@@ -1236,7 +1236,7 @@ tsvector2_concat(PG_FUNCTION_ARGS)
 		if (npos > 0)
 		{
 			int			addlen;
-			WordEntryPos *apos = POSDATAPTR(new_lex, lex_len);
+			WordEntryPos *apos = get_lexeme_positions(new_lex, lex_len);
 
 			addlen = add_pos(lex, UNWRAP_ENTRY(in2, ptr2), apos, 0, maxpos);
 			if (addlen > 0)
@@ -1270,7 +1270,7 @@ tsvector2_concat(PG_FUNCTION_ARGS)
 	TS_SETCOUNT(out, i);
 	if (data != tsvector2_storage(out))
 		memmove(tsvector2_storage(out), data, dataoff);
-	output_bytes = CALCDATASIZE(TS_COUNT(out), dataoff);
+	output_bytes = CALCDATASIZE(out->size, dataoff);
 	Assert(output_bytes <= VARSIZE(out));
 	SET_VARSIZE(out, output_bytes);
 
@@ -1454,7 +1454,7 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 		if (difference == 0)
 		{
 			/* Check weight info & fill 'data' with positions */
-			res = checkclass_str(POSDATAPTR(lexeme, entry->len),
+			res = checkclass_str(get_lexeme_positions(lexeme, entry->len),
 								 entry->npos, val, data);
 			break;
 		}
@@ -1486,7 +1486,7 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 			lexeme = tsvector2_getlexeme(chkval->vec, StopMiddle, &entry);
 
 			Assert(!entry->hasoff);
-			pv = POSDATAPTR(lexeme, entry->len);
+			pv = get_lexeme_positions(lexeme, entry->len);
 			cmp = tsCompareString(chkval->operand + val->distance,
 								  val->length,
 								  lexeme,
@@ -2073,7 +2073,7 @@ ts_match_vq(PG_FUNCTION_ARGS)
 	}
 
 	chkval.bidx = 0;
-	chkval.eidx = TS_COUNT(val);
+	chkval.eidx = val->size;
 	chkval.vec = val;
 	chkval.operand = GETOPERAND(query);
 	result = TS_execute(GETQUERY(query),
@@ -2146,7 +2146,7 @@ check_weight(char *lexeme, WordEntry2 *wptr, int8 weight)
 
 	Assert(!wptr->hasoff);
 	len = wptr->len;
-	ptr = POSDATAPTR(lexeme, len);
+	ptr = get_lexeme_positions(lexeme, len);
 	while (len--)
 	{
 		if (weight & (1 << WEP_GETWEIGHT(*ptr)))
@@ -2236,7 +2236,7 @@ chooseNextStatEntry(MemoryContext persistentContext, TSVectorStat *stat, TSVecto
 {
 	uint32		pos;
 	uint32		middle = (low + high) >> 1,
-				count = TS_COUNT(txt);
+				count = txt->size; 
 
 	pos = (low + middle) >> 1;
 	if (low != middle && pos >= offset && pos - offset < count)
@@ -2270,7 +2270,7 @@ ts_accum(MemoryContext persistentContext, TSVectorStat *stat, Datum data)
 	uint32		i,
 				nbit = 0,
 				offset,
-				count = TS_COUNT(txt);
+				count = txt->size;
 
 	if (stat == NULL)
 	{							/* Init in first */
