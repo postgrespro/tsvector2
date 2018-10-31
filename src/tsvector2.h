@@ -8,8 +8,8 @@
  *
  *-------------------------------------------------------------------------
  */
-#ifndef _PG_TSTYPE_H_
-#define _PG_TSTYPE_H_
+#ifndef TSVECTOR2_H
+#define TSVECTOR2_H
 
 #include "fmgr.h"
 #include "utils/memutils.h"
@@ -55,9 +55,6 @@ typedef union
 	};
 } WordEntry2;
 
-#define MAXSTRLEN ( (1<<11) - 1)
-#define MAXSTRPOS ( (1<<30) - 1)
-
 extern int	compareWordEntryPos(const void *a, const void *b);
 
 /*
@@ -93,8 +90,9 @@ typedef struct
 
 typedef TSVectorData2 *TSVector2;
 
-#define DATAHDRSIZE (offsetof(TSVectorData2, entries))
-#define CALCDATASIZE(nentries, lenstr) (DATAHDRSIZE + (nentries) * sizeof(WordEntry2) + (lenstr) )
+#define tsvector2_hdrlen() (offsetof(TSVectorData2, entries))
+#define tsvector2_calcsize(nentries, lenstr) (tsvector2_hdrlen() + \
+							(nentries) * sizeof(WordEntry2) + (lenstr) )
 
 /* pointer to start of a tsvector2's WordEntry2 array */
 #define tsvector2_entries(x)	( (x)->entries )
@@ -152,129 +150,12 @@ do {													\
 
 TSVector2	tsvector2_upgrade(Datum orig, bool copy);
 
-#define DatumGetTSVector(X)			tsvector2_upgrade((X), false)
-#define DatumGetTSVectorCopy(X)		tsvector2_upgrade((X), true)
-#define TSVectorGetDatum(X)			PointerGetDatum(X)
-#define PG_GETARG_TSVECTOR(n)		DatumGetTSVector(PG_GETARG_DATUM(n))
-#define PG_GETARG_TSVECTOR_COPY(n)	DatumGetTSVectorCopy(PG_GETARG_DATUM(n))
-#define PG_RETURN_TSVECTOR(x)		return TSVectorGetDatum(x)
-
-/*
- * TSQuery
- *
- *
- */
-
-typedef int8 QueryItemType;
-
-/* Valid values for QueryItemType: */
-#define QI_VAL 1
-#define QI_OPR 2
-#define QI_VALSTOP 3			/* This is only used in an intermediate stack
-								 * representation in parse_tsquery. It's not a
-								 * legal type elsewhere. */
-
-/*
- * QueryItem is one node in tsquery - operator or operand.
- */
-typedef struct
-{
-	QueryItemType type;			/* operand or kind of operator (ts_tokentype) */
-	uint8		weight;			/* weights of operand to search. It's a
-								 * bitmask of allowed weights. if it =0 then
-								 * any weight are allowed. Weights and bit
-								 * map: A: 1<<3 B: 1<<2 C: 1<<1 D: 1<<0 */
-	bool		prefix;			/* true if it's a prefix search */
-	int32		valcrc;			/* XXX: pg_crc32 would be a more appropriate
-								 * data type, but we use comparisons to signed
-								 * integers in the code. They would need to be
-								 * changed as well. */
-
-	/* pointer to text value of operand, must correlate with WordEntry2 */
-	uint32
-				length:12,
-				distance:20;
-} QueryOperand;
-
-
-/*
- * Legal values for QueryOperator.operator.
- */
-#define OP_NOT			1
-#define OP_AND			2
-#define OP_OR			3
-#define OP_PHRASE		4		/* highest code, tsquery_cleanup.c */
-#define OP_COUNT		4
-
-extern const int tsearch_op_priority[OP_COUNT];
-
-/* get operation priority  by its code*/
-#define OP_PRIORITY(x)	( tsearch_op_priority[(x) - 1] )
-/* get QueryOperator priority */
-#define QO_PRIORITY(x)	OP_PRIORITY(((QueryOperator *) (x))->oper)
-
-typedef struct
-{
-	QueryItemType type;
-	int8		oper;			/* see above */
-	int16		distance;		/* distance between agrs for OP_PHRASE */
-	uint32		left;			/* pointer to left operand. Right operand is
-								 * item + 1, left operand is placed
-								 * item+item->left */
-} QueryOperator;
-
-/*
- * Note: TSQuery is 4-bytes aligned, so make sure there's no fields
- * inside QueryItem requiring 8-byte alignment, like int64.
- */
-typedef union
-{
-	QueryItemType type;
-	QueryOperator qoperator;
-	QueryOperand qoperand;
-} QueryItem;
-
-/*
- * Storage:
- *	(len)(size)(array of QueryItem)(operands as '\0'-terminated c-strings)
- */
-
-typedef struct
-{
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	int32		size;			/* number of QueryItems */
-	char		data[FLEXIBLE_ARRAY_MEMBER];	/* data starts here */
-} TSQueryData;
-
-typedef TSQueryData *TSQuery;
-
-#define HDRSIZETQ	( VARHDRSZ + sizeof(int32) )
-
-/* Computes the size of header and all QueryItems. size is the number of
- * QueryItems, and lenofoperand is the total length of all operands
- */
-#define COMPUTESIZE(size, lenofoperand) ( HDRSIZETQ + (size) * sizeof(QueryItem) + (lenofoperand) )
-#define TSQUERY_TOO_BIG(size, lenofoperand) \
-	((size) > (MaxAllocSize - HDRSIZETQ - (lenofoperand)) / sizeof(QueryItem))
-
-/* Returns a pointer to the first QueryItem in a TSQuery */
-#define GETQUERY(x)  ((QueryItem*)( (char*)(x)+HDRSIZETQ ))
-
-/* Returns a pointer to the beginning of operands in a TSQuery */
-#define GETOPERAND(x)	( (char*)GETQUERY(x) + ((TSQuery)(x))->size * sizeof(QueryItem) )
-
-/*
- * fmgr interface macros
- * Note, TSQuery type marked as plain storage, so it can't be toasted
- * but PG_DETOAST_DATUM_COPY is used for simplicity
- */
-
-#define DatumGetTSQuery(X)			(PG_DETOAST_DATUM(X))
-#define DatumGetTSQueryCopy(X)		(PG_DETOAST_DATUM_COPY(X))
-#define TSQueryGetDatum(X)			PointerGetDatum(X)
-#define PG_GETARG_TSQUERY(n)		DatumGetTSQuery(PG_GETARG_DATUM(n))
-#define PG_GETARG_TSQUERY_COPY(n)	DatumGetTSQueryCopy(PG_GETARG_DATUM(n))
-#define PG_RETURN_TSQUERY(x)		return TSQueryGetDatum(x)
+#define DatumGetTSVector2(X)		((TSVector2) PG_DETOAST_DATUM(X))
+#define DatumGetTSVector2Copy(X)	((TSVector2) PG_DETOAST_DATUM(X))
+#define TSVector2GetDatum(X)			PointerGetDatum(X)
+#define PG_GETARG_TSVECTOR2(n)		DatumGetTSVector2(PG_GETARG_DATUM(n))
+#define PG_GETARG_TSVECTOR2_COPY(n)	DatumGetTSVector2Copy(PG_GETARG_DATUM(n))
+#define PG_RETURN_TSVECTOR2(x)		return TSVector2GetDatum(x)
 
 int tsvector2_getoffset(TSVector2 vec, int idx, WordEntry2 **we);
 char *tsvector2_addlexeme(TSVector2 tsv, int idx, int *dataoff,
@@ -294,4 +175,4 @@ tsvector2_getlexeme(TSVector2 vec, int idx, WordEntry2 **we)
 	return tsvector2_storage(vec) + tsvector2_getoffset(vec, idx, we);
 }
 
-#endif							/* _PG_TSTYPE_H_ */
+#endif

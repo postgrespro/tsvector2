@@ -95,7 +95,7 @@ compareentry(const void *va, const void *vb, void *arg)
 {
 	const WordEntry2 *a = (const WordEntry2 *) va;
 	const WordEntry2 *b = (const WordEntry2 *) vb;
-	TSVector	tsv = (TSVector) arg;
+	TSVector2	tsv = (TSVector2) arg;
 
 	uint32		offset1 = tsvector2_getoffset(tsv, a - tsvector2_entries(tsv), NULL),
 				offset2 = tsvector2_getoffset(tsv, b - tsvector2_entries(tsv), NULL);
@@ -198,6 +198,7 @@ uniqueentry(WordEntryIN *a, int l, char *buf, int *outbuflen)
 	return res + 1 - a;
 }
 
+PG_FUNCTION_INFO_V1(tsvector2in);
 Datum
 tsvector2in(PG_FUNCTION_ARGS)
 {
@@ -207,7 +208,7 @@ tsvector2in(PG_FUNCTION_ARGS)
 	int			totallen;
 	int			arrlen;			/* allocated size of arr */
 	int			len = 0;
-	TSVector	in;
+	TSVector2	in;
 	int			i;
 	char	   *token;
 	int			toklen;
@@ -223,13 +224,13 @@ tsvector2in(PG_FUNCTION_ARGS)
 	char	   *cur;
 	int			buflen = 256;	/* allocated size of tmpbuf */
 
-	state = init_tsvector2_parser(buf, 0);
+	state = init_tsvector_parser(buf, 0);
 
 	arrlen = 64;
 	arr = (WordEntryIN *) palloc(sizeof(WordEntryIN) * arrlen);
 	cur = tmpbuf = (char *) palloc(buflen);
 
-	while (gettoken_tsvector2(state, &token, &toklen, &pos, &poslen, NULL))
+	while (gettoken_tsvector(state, &token, &toklen, &pos, &poslen, NULL))
 	{
 		if (toklen >= MAXSTRLEN)
 			ereport(ERROR,
@@ -271,7 +272,7 @@ tsvector2in(PG_FUNCTION_ARGS)
 		len++;
 	}
 
-	close_tsvector2_parser(state);
+	close_tsvector_parser(state);
 
 	if (len > 0)
 		len = uniqueentry(arr, len, tmpbuf, &buflen);
@@ -283,10 +284,10 @@ tsvector2in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("string is too long for tsvector2 (%d bytes, max %d bytes)", buflen, MAXSTRPOS)));
 
-	totallen = CALCDATASIZE(len, buflen);
-	in = (TSVector) palloc0(totallen);
+	totallen = tsvector2_calcsize(len, buflen);
+	in = (TSVector2) palloc0(totallen);
 	SET_VARSIZE(in, totallen);
-	TS_SETCOUNT(in, len);
+	in->size = len;
 	stroff = 0;
 	for (i = 0; i < len; i++)
 	{
@@ -298,13 +299,14 @@ tsvector2in(PG_FUNCTION_ARGS)
 	}
 
 	Assert((tsvector2_storage(in) + stroff - (char *) in) == totallen);
-	PG_RETURN_TSVECTOR(in);
+	PG_RETURN_TSVECTOR2(in);
 }
 
+PG_FUNCTION_INFO_V1(tsvector2out);
 Datum
 tsvector2out(PG_FUNCTION_ARGS)
 {
-	TSVector	out = PG_GETARG_TSVECTOR(0);
+	TSVector2	out = PG_GETARG_TSVECTOR2(0);
 	char	   *outbuf;
 	int32		i,
 				lenbuf = 0,
@@ -404,10 +406,11 @@ tsvector2out(PG_FUNCTION_ARGS)
  *			uint16 WordEntryPos
  */
 
+PG_FUNCTION_INFO_V1(tsvector2send);
 Datum
 tsvector2send(PG_FUNCTION_ARGS)
 {
-	TSVector	vec = PG_GETARG_TSVECTOR(0);
+	TSVector2	vec = PG_GETARG_TSVECTOR2(0);
 	StringInfoData buf;
 	int			i,
 				j;
@@ -425,7 +428,7 @@ tsvector2send(PG_FUNCTION_ARGS)
 					lex_len = ENTRY_LEN(vec, weptr);
 
 		/*
-		 * the strings in the TSVector array are not null-terminated, so we
+		 * the strings in the TSVector2 array are not null-terminated, so we
 		 * have to send the null-terminator separately
 		 */
 		pq_sendtext(&buf, lexeme, lex_len);
@@ -446,14 +449,15 @@ tsvector2send(PG_FUNCTION_ARGS)
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
 }
 
+PG_FUNCTION_INFO_V1(tsvector2recv);
 Datum
 tsvector2recv(PG_FUNCTION_ARGS)
 {
 	StringInfo	buf = (StringInfo) PG_GETARG_POINTER(0);
-	TSVector	vec;
+	TSVector2	vec;
 	int			i,
 				datalen;		/* number of bytes used in the variable size
-								 * area after fixed size TSVector header and
+								 * area after fixed size TSVector2 header and
 								 * WordEntries */
 	int32		nentries;
 	Size		hdrlen;
@@ -466,11 +470,11 @@ tsvector2recv(PG_FUNCTION_ARGS)
 	if (nentries < 0 || nentries > (MaxAllocSize / sizeof(WordEntry2)))
 		elog(ERROR, "invalid size of tsvector2");
 
-	hdrlen = DATAHDRSIZE + sizeof(WordEntry2) * nentries;
+	hdrlen = tsvector2_hdrlen() + sizeof(WordEntry2) * nentries;
 
 	len = hdrlen * 2;			/* times two to make room for lexemes */
-	vec = (TSVector) palloc0(len);
-	TS_SETCOUNT(vec, nentries);
+	vec = (TSVector2) palloc0(len);
+	vec->size = nentries;
 
 	datalen = 0;
 	for (i = 0; i < nentries; i++)
@@ -504,7 +508,7 @@ tsvector2recv(PG_FUNCTION_ARGS)
 			   npos * sizeof(WordEntryPos) >= len)
 		{
 			len *= 2;
-			vec = (TSVector) repalloc(vec, len);
+			vec = (TSVector2) repalloc(vec, len);
 		}
 
 		if (prev_lexeme && tsCompareString(lexeme, lex_len,
@@ -537,5 +541,5 @@ tsvector2recv(PG_FUNCTION_ARGS)
 		qsort_arg((void *) tsvector2_entries(vec), vec->size, sizeof(WordEntry2),
 				  compareentry, (void *) vec);
 
-	PG_RETURN_TSVECTOR(vec);
+	PG_RETURN_TSVECTOR2(vec);
 }
