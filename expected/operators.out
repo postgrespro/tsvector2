@@ -1,0 +1,182 @@
+create extension tsvector2;
+SELECT '1'::tsvector2;
+ tsvector2 
+-----------
+ '1'
+(1 row)
+
+SELECT '1 '::tsvector2;
+ tsvector2 
+-----------
+ '1'
+(1 row)
+
+SELECT ' 1'::tsvector2;
+ tsvector2 
+-----------
+ '1'
+(1 row)
+
+SELECT ' 1 '::tsvector2;
+ tsvector2 
+-----------
+ '1'
+(1 row)
+
+SELECT '1 2'::tsvector2;
+ tsvector2 
+-----------
+ '1' '2'
+(1 row)
+
+SELECT '''1 2'''::tsvector2;
+ tsvector2 
+-----------
+ '1 2'
+(1 row)
+
+SELECT E'''1 \\''2'''::tsvector2;
+ tsvector2 
+-----------
+ '1 ''2'
+(1 row)
+
+SELECT E'''1 \\''2''3'::tsvector2;
+  tsvector2  
+-------------
+ '1 ''2' '3'
+(1 row)
+
+SELECT E'''1 \\''2'' 3'::tsvector2;
+  tsvector2  
+-------------
+ '1 ''2' '3'
+(1 row)
+
+SELECT E'''1 \\''2'' '' 3'' 4 '::tsvector2;
+    tsvector2     
+------------------
+ ' 3' '1 ''2' '4'
+(1 row)
+
+SELECT $$'\\as' ab\c ab\\c AB\\\c ab\\\\c$$::tsvector2;
+               tsvector2                
+----------------------------------------
+ 'AB\\c' '\\as' 'ab\\\\c' 'ab\\c' 'abc'
+(1 row)
+
+SELECT tsvector2in(tsvector2out($$'\\as' ab\c ab\\c AB\\\c ab\\\\c$$::tsvector2));
+              tsvector2in               
+----------------------------------------
+ 'AB\\c' '\\as' 'ab\\\\c' 'ab\\c' 'abc'
+(1 row)
+
+SELECT '''w'':4A,3B,2C,1D,5 a:8';
+       ?column?        
+-----------------------
+ 'w':4A,3B,2C,1D,5 a:8
+(1 row)
+
+SELECT 'a:3A b:2a'::tsvector2 || 'ba:1234 a:1B';
+          ?column?          
+----------------------------
+ 'a':3A,4B 'b':2A 'ba':1237
+(1 row)
+
+-- comparison
+select 'a:1 b:2'::tsvector2 < 'a:1 b:3'::tsvector2;
+ ?column? 
+----------
+ f
+(1 row)
+
+select 'a:1 b:2'::tsvector2 <= 'a:1 b:3'::tsvector2;
+ ?column? 
+----------
+ f
+(1 row)
+
+select 'a:1 b:2'::tsvector2 > 'a:1 b:3'::tsvector2;
+ ?column? 
+----------
+ t
+(1 row)
+
+select 'a:1 b:2'::tsvector2 >= 'a:1 b:3'::tsvector2;
+ ?column? 
+----------
+ t
+(1 row)
+
+select 'a:1 b:4'::tsvector2 < 'a:1 b:3'::tsvector2;
+ ?column? 
+----------
+ t
+(1 row)
+
+select 'a:1 b:4'::tsvector2 <= 'a:1 b:3'::tsvector2;
+ ?column? 
+----------
+ t
+(1 row)
+
+select 'a:1 b:4'::tsvector2 > 'a:1 b:3'::tsvector2;
+ ?column? 
+----------
+ f
+(1 row)
+
+select 'a:1 b:4'::tsvector2 >= 'a:1 b:3'::tsvector2;
+ ?column? 
+----------
+ f
+(1 row)
+
+select 'a:1 b:2'::tsvector2 = 'a:1 b:2'::tsvector2;
+ ?column? 
+----------
+ t
+(1 row)
+
+select 'a:1 b:2'::tsvector2 <> 'a:1 b:2'::tsvector2;
+ ?column? 
+----------
+ f
+(1 row)
+
+select 'a:1 b:2'::tsvector2 <= 'a:1 b:2'::tsvector2;
+ ?column? 
+----------
+ t
+(1 row)
+
+select 'a:1 b:2'::tsvector2 >= 'a:1 b:2'::tsvector2;
+ ?column? 
+----------
+ t
+(1 row)
+
+select 'a:1 b:2'::tsvector2 = 'a:2 b:4'::tsvector2;
+ ?column? 
+----------
+ f
+(1 row)
+
+select 'a:1 b:2'::tsvector2 <> 'a:2 b:4'::tsvector2;
+ ?column? 
+----------
+ t
+(1 row)
+
+select 'a:7 b:9'::tsvector2 = 'a:2 b:4'::tsvector2;
+ ?column? 
+----------
+ f
+(1 row)
+
+select 'a:7 b:9'::tsvector2 <> 'a:2 b:4'::tsvector2;
+ ?column? 
+----------
+ t
+(1 row)
+
