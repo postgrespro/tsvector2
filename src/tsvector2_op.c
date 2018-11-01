@@ -26,6 +26,7 @@
 #include "utils/regproc.h"
 #include "utils/rel.h"
 #include "tsearch/ts_utils.h"
+#include "tsearch/ts_cache.h"
 
 #include "tsvector2.h"
 
@@ -65,8 +66,11 @@ typedef struct
 
 #define STATHDRSIZE (offsetof(TSVectorStat, data))
 
-static Datum tsvector2_update_trigger(PG_FUNCTION_ARGS, bool config_column);
 static int	tsvector2_bsearch(const TSVector2 tsv, char *lexeme, int lexeme_len);
+static TSVector2 make_tsvector2(ParsedText *prs);
+
+PG_FUNCTION_INFO_V1(to_tsvector2);
+PG_FUNCTION_INFO_V1(to_tsvector2_byid);
 
 /*
  * Order: npos, len, word, for all positions (pos, weight)
@@ -874,6 +878,7 @@ tsvector2_addlexeme(TSVector2 tsv, int idx, int *dataoff,
 /*
  * Build tsvector2 from array of lexemes.
  */
+PG_FUNCTION_INFO_V1(array_to_tsvector2);
 Datum
 array_to_tsvector2(PG_FUNCTION_ARGS)
 {
@@ -941,6 +946,7 @@ array_to_tsvector2(PG_FUNCTION_ARGS)
 /*
  * ts_filter(): keep only lexemes with given weights in tsvector2.
  */
+PG_FUNCTION_INFO_V1(tsvector2_filter);
 Datum
 tsvector2_filter(PG_FUNCTION_ARGS)
 {
@@ -1072,6 +1078,7 @@ get_maxpos(TSVector2 tsv)
 	return maxpos;
 }
 
+PG_FUNCTION_INFO_V1(tsvector2_concat);
 Datum
 tsvector2_concat(PG_FUNCTION_ARGS)
 {
@@ -2448,6 +2455,7 @@ ts_stat_sql(MemoryContext persistentContext, text *txt, text *ws)
 	bool		isnull;
 	Portal		portal;
 	SPIPlanPtr	plan;
+	Oid			oid;
 
 	if ((plan = SPI_prepare(query, 0, NULL)) == NULL)
 		/* internal error */
@@ -2459,10 +2467,12 @@ ts_stat_sql(MemoryContext persistentContext, text *txt, text *ws)
 
 	SPI_cursor_fetch(portal, true, 100);
 
+	oid = TypenameGetTypid("tsvector2");
+
 	if (SPI_tuptable == NULL ||
 		SPI_tuptable->tupdesc->natts != 1 ||
 		!IsBinaryCoercible(SPI_gettypeid(SPI_tuptable->tupdesc, 1),
-						   TSVECTOR2OID))
+						   oid))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("ts_stat query must return one tsvector2 column")));
@@ -2581,180 +2591,203 @@ ts_stat2(PG_FUNCTION_ARGS)
 	SRF_RETURN_DONE(funcctx);
 }
 
+/*
+ * to_tsvector
+ */
+static int
+compareWORD(const void *a, const void *b)
+{
+	int			res;
+
+	res = tsCompareString(
+						  ((const ParsedWord *) a)->word, ((const ParsedWord *) a)->len,
+						  ((const ParsedWord *) b)->word, ((const ParsedWord *) b)->len,
+						  false);
+
+	if (res == 0)
+	{
+		if (((const ParsedWord *) a)->pos.pos == ((const ParsedWord *) b)->pos.pos)
+			return 0;
+
+		res = (((const ParsedWord *) a)->pos.pos > ((const ParsedWord *) b)->pos.pos) ? 1 : -1;
+	}
+
+	return res;
+}
+
+static int
+uniqueWORD(ParsedWord *a, int32 l)
+{
+	ParsedWord *ptr,
+			   *res;
+	int			tmppos;
+
+	if (l == 1)
+	{
+		tmppos = LIMITPOS(a->pos.pos);
+		a->alen = 2;
+		a->pos.apos = (uint16 *) palloc(sizeof(uint16) * a->alen);
+		a->pos.apos[0] = 1;
+		a->pos.apos[1] = tmppos;
+		return l;
+	}
+
+	res = a;
+	ptr = a + 1;
+
+	/*
+	 * Sort words with its positions
+	 */
+	qsort((void *) a, l, sizeof(ParsedWord), compareWORD);
+
+	/*
+	 * Initialize first word and its first position
+	 */
+	tmppos = LIMITPOS(a->pos.pos);
+	a->alen = 2;
+	a->pos.apos = (uint16 *) palloc(sizeof(uint16) * a->alen);
+	a->pos.apos[0] = 1;
+	a->pos.apos[1] = tmppos;
+
+	/*
+	 * Summarize position information for each word
+	 */
+	while (ptr - a < l)
+	{
+		if (!(ptr->len == res->len &&
+			  strncmp(ptr->word, res->word, res->len) == 0))
+		{
+			/*
+			 * Got a new word, so put it in result
+			 */
+			res++;
+			res->len = ptr->len;
+			res->word = ptr->word;
+			tmppos = LIMITPOS(ptr->pos.pos);
+			res->alen = 2;
+			res->pos.apos = (uint16 *) palloc(sizeof(uint16) * res->alen);
+			res->pos.apos[0] = 1;
+			res->pos.apos[1] = tmppos;
+		}
+		else
+		{
+			/*
+			 * The word already exists, so adjust position information. But
+			 * before we should check size of position's array, max allowed
+			 * value for position and uniqueness of position
+			 */
+			pfree(ptr->word);
+			if (res->pos.apos[0] < MAXNUMPOS - 1 && res->pos.apos[res->pos.apos[0]] != MAXENTRYPOS - 1 &&
+				res->pos.apos[res->pos.apos[0]] != LIMITPOS(ptr->pos.pos))
+			{
+				if (res->pos.apos[0] + 1 >= res->alen)
+				{
+					res->alen *= 2;
+					res->pos.apos = (uint16 *) repalloc(res->pos.apos, sizeof(uint16) * res->alen);
+				}
+				if (res->pos.apos[0] == 0 || res->pos.apos[res->pos.apos[0]] != LIMITPOS(ptr->pos.pos))
+				{
+					res->pos.apos[res->pos.apos[0] + 1] = LIMITPOS(ptr->pos.pos);
+					res->pos.apos[0]++;
+				}
+			}
+		}
+		ptr++;
+	}
+
+	return res + 1 - a;
+}
 
 /*
- * Triggers for automatic update of a tsvector2 column from text column(s)
+ * make value of tsvector, given parsed text
  *
- * Trigger arguments are either
- *		name of tsvector2 col, name of tsconfig to use, name(s) of text col(s)
- *		name of tsvector2 col, name of regconfig col, name(s) of text col(s)
- * ie, tsconfig can either be specified by name, or indirectly as the
- * contents of a regconfig field in the row.  If the name is used, it must
- * be explicitly schema-qualified.
+ * Note: frees prs->words and subsidiary data.
  */
-Datum
-tsvector2_update_trigger_byid(PG_FUNCTION_ARGS)
+static TSVector2
+make_tsvector2(ParsedText *prs)
 {
-	return tsvector2_update_trigger(fcinfo, false);
+	int			i,
+				lenstr = 0,
+				totallen,
+				stroff = 0;
+	TSVector2	in;
+
+	/* Merge duplicate words */
+	if (prs->curwords > 0)
+		prs->curwords = uniqueWORD(prs->words, prs->curwords);
+
+	/* Determine space needed */
+	for (i = 0; i < prs->curwords; i++)
+	{
+		int			npos = prs->words[i].alen ? prs->words[i].pos.apos[0] : 0;
+
+		INCRSIZE(lenstr, i, prs->words[i].len, npos);
+	}
+
+	if (lenstr > MAXSTRPOS)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("string is too long for tsvector (%d bytes, max %d bytes)",
+					 lenstr, MAXSTRPOS)));
+
+	totallen = CALCDATASIZE(prs->curwords, lenstr);
+	in = (TSVector2) palloc0(totallen);
+	SET_VARSIZE(in, totallen);
+	in->size = prs->curwords;
+
+	for (i = 0; i < prs->curwords; i++)
+	{
+		int			npos = 0;
+
+		if (prs->words[i].alen)
+			npos = prs->words[i].pos.apos[0];
+
+		tsvector2_addlexeme(in, i, &stroff, prs->words[i].word, prs->words[i].len,
+						   prs->words[i].pos.apos + 1, npos);
+
+		pfree(prs->words[i].word);
+		if (prs->words[i].alen)
+			pfree(prs->words[i].pos.apos);
+	}
+
+	if (prs->words)
+		pfree(prs->words);
+
+	return in;
 }
 
 Datum
-tsvector2_update_trigger_bycolumn(PG_FUNCTION_ARGS)
+to_tsvector2_byid(PG_FUNCTION_ARGS)
 {
-	return tsvector2_update_trigger(fcinfo, true);
-}
-
-static Datum
-tsvector2_update_trigger(PG_FUNCTION_ARGS, bool config_column)
-{
-	TriggerData *trigdata;
-	Trigger    *trigger;
-	Relation	rel;
-	HeapTuple	rettuple = NULL;
-	int			tsvector2_attr_num,
-				i;
+	Oid			cfgId = PG_GETARG_OID(0);
+	text	   *in = PG_GETARG_TEXT_PP(1);
 	ParsedText	prs;
-	Datum		datum;
-	bool		isnull;
-	text	   *txt;
-	Oid			cfgId;
+	TSVector2	out;
 
-	/* Check call context */
-	if (!CALLED_AS_TRIGGER(fcinfo)) /* internal error */
-		elog(ERROR, "tsvector2_update_trigger: not fired by trigger manager");
-
-	trigdata = (TriggerData *) fcinfo->context;
-	if (!TRIGGER_FIRED_FOR_ROW(trigdata->tg_event))
-		elog(ERROR, "tsvector2_update_trigger: must be fired for row");
-	if (!TRIGGER_FIRED_BEFORE(trigdata->tg_event))
-		elog(ERROR, "tsvector2_update_trigger: must be fired BEFORE event");
-
-	if (TRIGGER_FIRED_BY_INSERT(trigdata->tg_event))
-		rettuple = trigdata->tg_trigtuple;
-	else if (TRIGGER_FIRED_BY_UPDATE(trigdata->tg_event))
-		rettuple = trigdata->tg_newtuple;
-	else
-		elog(ERROR, "tsvector2_update_trigger: must be fired for INSERT or UPDATE");
-
-	trigger = trigdata->tg_trigger;
-	rel = trigdata->tg_relation;
-
-	if (trigger->tgnargs < 3)
-		elog(ERROR, "tsvector2_update_trigger: arguments must be tsvector2_field, ts_config, text_field1, ...)");
-
-	/* Find the target tsvector2 column */
-	tsvector2_attr_num = SPI_fnumber(rel->rd_att, trigger->tgargs[0]);
-	if (tsvector2_attr_num == SPI_ERROR_NOATTRIBUTE)
-		ereport(ERROR,
-				(errcode(ERRCODE_UNDEFINED_COLUMN),
-				 errmsg("tsvector2 column \"%s\" does not exist",
-						trigger->tgargs[0])));
-	/* This will effectively reject system columns, so no separate test: */
-	if (!IsBinaryCoercible(SPI_gettypeid(rel->rd_att, tsvector2_attr_num),
-						   TSVECTOR2OID))
-		ereport(ERROR,
-				(errcode(ERRCODE_DATATYPE_MISMATCH),
-				 errmsg("column \"%s\" is not of tsvector2 type",
-						trigger->tgargs[0])));
-
-	/* Find the configuration to use */
-	if (config_column)
-	{
-		int			config_attr_num;
-
-		config_attr_num = SPI_fnumber(rel->rd_att, trigger->tgargs[1]);
-		if (config_attr_num == SPI_ERROR_NOATTRIBUTE)
-			ereport(ERROR,
-					(errcode(ERRCODE_UNDEFINED_COLUMN),
-					 errmsg("configuration column \"%s\" does not exist",
-							trigger->tgargs[1])));
-		if (!IsBinaryCoercible(SPI_gettypeid(rel->rd_att, config_attr_num),
-							   REGCONFIGOID))
-			ereport(ERROR,
-					(errcode(ERRCODE_DATATYPE_MISMATCH),
-					 errmsg("column \"%s\" is not of regconfig type",
-							trigger->tgargs[1])));
-
-		datum = SPI_getbinval(rettuple, rel->rd_att, config_attr_num, &isnull);
-		if (isnull)
-			ereport(ERROR,
-					(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-					 errmsg("configuration column \"%s\" must not be null",
-							trigger->tgargs[1])));
-		cfgId = DatumGetObjectId(datum);
-	}
-	else
-	{
-		List	   *names;
-
-		names = stringToQualifiedNameList(trigger->tgargs[1]);
-		/* require a schema so that results are not search path dependent */
-		if (list_length(names) < 2)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("text search configuration name \"%s\" must be schema-qualified",
-							trigger->tgargs[1])));
-		cfgId = get_ts_config_oid(names, false);
-	}
-
-	/* initialize parse state */
-	prs.lenwords = 32;
+	prs.lenwords = VARSIZE_ANY_EXHDR(in) / 6;	/* just estimation of word's
+												 * number */
+	if (prs.lenwords < 2)
+		prs.lenwords = 2;
 	prs.curwords = 0;
 	prs.pos = 0;
 	prs.words = (ParsedWord *) palloc(sizeof(ParsedWord) * prs.lenwords);
 
-	/* find all words in indexable column(s) */
-	for (i = 2; i < trigger->tgnargs; i++)
-	{
-		int			numattr;
+	parsetext(cfgId, &prs, VARDATA_ANY(in), VARSIZE_ANY_EXHDR(in));
 
-		numattr = SPI_fnumber(rel->rd_att, trigger->tgargs[i]);
-		if (numattr == SPI_ERROR_NOATTRIBUTE)
-			ereport(ERROR,
-					(errcode(ERRCODE_UNDEFINED_COLUMN),
-					 errmsg("column \"%s\" does not exist",
-							trigger->tgargs[i])));
-		if (!IsBinaryCoercible(SPI_gettypeid(rel->rd_att, numattr), TEXTOID))
-			ereport(ERROR,
-					(errcode(ERRCODE_DATATYPE_MISMATCH),
-					 errmsg("column \"%s\" is not of a character type",
-							trigger->tgargs[i])));
+	PG_FREE_IF_COPY(in, 1);
 
-		datum = SPI_getbinval(rettuple, rel->rd_att, numattr, &isnull);
-		if (isnull)
-			continue;
+	out = make_tsvector2(&prs);
+	PG_RETURN_TSVECTOR2(out);
+}
 
-		txt = DatumGetTextPP(datum);
+Datum
+to_tsvector2(PG_FUNCTION_ARGS)
+{
+	text	   *in = PG_GETARG_TEXT_PP(0);
+	Oid			cfgId;
 
-		parsetext(cfgId, &prs, VARDATA_ANY(txt), VARSIZE_ANY_EXHDR(txt));
-
-		if (txt != (text *) DatumGetPointer(datum))
-			pfree(txt);
-	}
-
-	/* make tsvector2 value */
-	if (prs.curwords)
-	{
-		datum = PointerGetDatum(make_tsvector2(&prs));
-		isnull = false;
-		rettuple = heap_modify_tuple_by_cols(rettuple, rel->rd_att,
-											 1, &tsvector2_attr_num,
-											 &datum, &isnull);
-		pfree(DatumGetPointer(datum));
-	}
-	else
-	{
-		TSVector2	out = palloc(CALCDATASIZE(0, 0));
-
-		SET_VARSIZE(out, CALCDATASIZE(0, 0));
-		out->size = 0;
-		datum = PointerGetDatum(out);
-		isnull = false;
-		rettuple = heap_modify_tuple_by_cols(rettuple, rel->rd_att,
-											 1, &tsvector2_attr_num,
-											 &datum, &isnull);
-		pfree(prs.words);
-	}
-
-	return PointerGetDatum(rettuple);
+	cfgId = getTSCurrentConfig(true);
+	PG_RETURN_DATUM(DirectFunctionCall2(to_tsvector2_byid,
+										ObjectIdGetDatum(cfgId),
+										PointerGetDatum(in)));
 }
