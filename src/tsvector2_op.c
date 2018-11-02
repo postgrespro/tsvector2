@@ -264,7 +264,8 @@ tsvector2_setweight(PG_FUNCTION_ARGS)
 
 		if (npos)
 		{
-			WordEntryPos *p = get_lexeme_positions(tsvector2_storage(out) + pos, ENTRY_LEN(out, weptr));
+			WordEntryPos *p = get_lexeme_positions(tsvector2_storage(out) + pos,
+					ENTRY_LEN(out, weptr));
 
 			for (j = 0; j < npos; j++)
 				WEP_SETWEIGHT(p[j], w);

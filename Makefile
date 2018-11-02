@@ -5,7 +5,7 @@ EXTENSION = tsvector2
 EXTVERSION = 1.0
 DATA_built = tsvector2--$(EXTVERSION).sql
 
-REGRESS = operators
+REGRESS = operators functions
 
 EXTRA_CLEAN = tsvector2--$(EXTVERSION).sql
 

@@ -34,3 +34,5 @@ select 'a:1 b:2'::tsvector2 = 'a:2 b:4'::tsvector2;
 select 'a:1 b:2'::tsvector2 <> 'a:2 b:4'::tsvector2;
 select 'a:7 b:9'::tsvector2 = 'a:2 b:4'::tsvector2;
 select 'a:7 b:9'::tsvector2 <> 'a:2 b:4'::tsvector2;
+
+drop extension tsvector2;
