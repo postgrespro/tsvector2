@@ -68,6 +68,16 @@ CREATE FUNCTION tsvector2_gt(tsvector2, tsvector2)
 	AS 'MODULE_PATHNAME'
 	LANGUAGE C STRICT IMMUTABLE;
 
+CREATE FUNCTION tsvector2_match_tsquery(tsvector2, tsquery)
+	RETURNS bool
+	AS 'MODULE_PATHNAME'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION tsquery_match_tsvector2(tsquery, tsvector2)
+	RETURNS bool
+	AS 'MODULE_PATHNAME'
+	LANGUAGE C STRICT IMMUTABLE;
+
 -- operators
 CREATE OPERATOR < (
 	LEFTARG = tsvector2,
@@ -135,6 +145,20 @@ CREATE OPERATOR || (
 	LEFTARG = tsvector2,
 	RIGHTARG = tsvector2,
 	PROCEDURE = tsvector2_concat
+);
+
+CREATE OPERATOR @@ (
+	LEFTARG = tsvector2,
+	RIGHTARG = tsquery,
+	PROCEDURE = tsvector2_match_tsquery,
+	COMMUTATOR = '@@'
+);
+
+CREATE OPERATOR @@ (
+	LEFTARG = tsquery,
+	RIGHTARG = tsvector2,
+	PROCEDURE = tsquery_match_tsvector2,
+	COMMUTATOR = '@@'
 );
 
 -- tsvector2 functions

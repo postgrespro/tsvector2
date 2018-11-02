@@ -71,6 +71,7 @@ static TSVector2 make_tsvector2(ParsedText *prs);
 
 PG_FUNCTION_INFO_V1(to_tsvector2);
 PG_FUNCTION_INFO_V1(to_tsvector2_byid);
+PG_FUNCTION_INFO_V1(tsvector2_match_tsquery);
 
 /*
  * Order: npos, len, word, for all positions (pos, weight)
@@ -2065,16 +2066,17 @@ tsquery_requires_match(QueryItem *curitem)
 /*
  * boolean operations
  */
+PG_FUNCTION_INFO_V1(tsquery_match_tsvector2);
 Datum
-ts_match_qv(PG_FUNCTION_ARGS)
+tsquery_match_tsvector2(PG_FUNCTION_ARGS)
 {
-	PG_RETURN_DATUM(DirectFunctionCall2(ts_match_vq,
+	PG_RETURN_DATUM(DirectFunctionCall2(tsvector2_match_tsquery,
 										PG_GETARG_DATUM(1),
 										PG_GETARG_DATUM(0)));
 }
 
 Datum
-ts_match_vq(PG_FUNCTION_ARGS)
+tsvector2_match_tsquery(PG_FUNCTION_ARGS)
 {
 	TSVector2	val = PG_GETARG_TSVECTOR2(0);
 	TSQuery		query = PG_GETARG_TSQUERY(1);
@@ -2101,48 +2103,6 @@ ts_match_vq(PG_FUNCTION_ARGS)
 	PG_FREE_IF_COPY(val, 0);
 	PG_FREE_IF_COPY(query, 1);
 	PG_RETURN_BOOL(result);
-}
-
-Datum
-ts_match_tt(PG_FUNCTION_ARGS)
-{
-	TSVector2	vector;
-	TSQuery		query;
-	bool		res;
-
-	vector = DatumGetTSVector2(DirectFunctionCall1(to_tsvector2,
-												  PG_GETARG_DATUM(0)));
-	query = DatumGetTSQuery(DirectFunctionCall1(plainto_tsquery,
-												PG_GETARG_DATUM(1)));
-
-	res = DatumGetBool(DirectFunctionCall2(ts_match_vq,
-										   TSVectorGetDatum(vector),
-										   TSQueryGetDatum(query)));
-
-	pfree(vector);
-	pfree(query);
-
-	PG_RETURN_BOOL(res);
-}
-
-Datum
-ts_match_tq(PG_FUNCTION_ARGS)
-{
-	TSVector2	vector;
-	TSQuery		query = PG_GETARG_TSQUERY(1);
-	bool		res;
-
-	vector = DatumGetTSVector2(DirectFunctionCall1(to_tsvector2,
-												  PG_GETARG_DATUM(0)));
-
-	res = DatumGetBool(DirectFunctionCall2(ts_match_vq,
-										   TSVectorGetDatum(vector),
-										   TSQueryGetDatum(query)));
-
-	pfree(vector);
-	PG_FREE_IF_COPY(query, 1);
-
-	PG_RETURN_BOOL(res);
 }
 
 /*
