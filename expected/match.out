@@ -1,0 +1,335 @@
+CREATE EXTENSION tsvector2;
+SELECT 'a b:89  ca:23A,64b d:34c'::tsvector2 @@ 'd:AC & ca' as "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'a b:89  ca:23A,64b d:34c'::tsvector2 @@ 'd:AC & ca' as "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'a b:89  ca:23A,64b d:34c'::tsvector2 @@ 'd:AC & ca:B' as "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'a b:89  ca:23A,64b d:34c'::tsvector2 @@ 'd:AC & ca:A' as "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'a b:89  ca:23A,64b d:34c'::tsvector2 @@ 'd:AC & ca:C' as "false";
+ false 
+-------
+ f
+(1 row)
+
+SELECT 'a b:89  ca:23A,64b d:34c'::tsvector2 @@ 'd:AC & ca:CB' as "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'a b:89  ca:23A,64b d:34c'::tsvector2 @@ 'd:AC & c:*C' as "false";
+ false 
+-------
+ f
+(1 row)
+
+SELECT 'a b:89  ca:23A,64b d:34c'::tsvector2 @@ 'd:AC & c:*CB' as "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'a b:89  ca:23A,64b cb:80c d:34c'::tsvector2 @@ 'd:AC & c:*C' as "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'a b:89  ca:23A,64c cb:80b d:34c'::tsvector2 @@ 'd:AC & c:*C' as "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'a b:89  ca:23A,64c cb:80b d:34c'::tsvector2 @@ 'd:AC & c:*B' as "true";
+ true 
+------
+ t
+(1 row)
+
+-- if text or tsquery first
+SELECT 'd:AC & ca'::tsquery @@ 'a b:89  ca:23A,64b d:34c'::tsvector2 as "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'd:AC & ca' @@ 'a b:89  ca:23A,64b d:34c'::tsvector2 as "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'supernova'::tsvector2 @@ 'super'::tsquery AS "false";
+ false 
+-------
+ f
+(1 row)
+
+SELECT 'supeanova supernova'::tsvector2 @@ 'super'::tsquery AS "false";
+ false 
+-------
+ f
+(1 row)
+
+SELECT 'supeznova supernova'::tsvector2 @@ 'super'::tsquery AS "false";
+ false 
+-------
+ f
+(1 row)
+
+SELECT 'supernova'::tsvector2 @@ 'super:*'::tsquery AS "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'supeanova supernova'::tsvector2 @@ 'super:*'::tsquery AS "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT 'supeznova supernova'::tsvector2 @@ 'super:*'::tsquery AS "true";
+ true 
+------
+ t
+(1 row)
+
+--phrase search
+SELECT to_tsvector2('simple', '1 2 3 1') @@ '1 <-> 2' AS "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 3 1') @@ '1 <2> 2' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 3 1') @@ '1 <-> 3' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 3 1') @@ '1 <2> 3' AS "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 1 2') @@ '1 <3> 2' AS "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 11 3') @@ '1 <-> 3' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 11 3') @@ '1:* <-> 3' AS "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 3 4') @@ '1 <-> 2 <-> 3' AS "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 3 4') @@ '(1 <-> 2) <-> 3' AS "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 3 4') @@ '1 <-> (2 <-> 3)' AS "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 3 4') @@ '1 <2> (2 <-> 3)' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 1 2 3 4') @@ '(1 <-> 2) <-> 3' AS "true";
+ true 
+------
+ t
+(1 row)
+
+SELECT to_tsvector2('simple', '1 2 1 2 3 4') @@ '1 <-> 2 <-> 3' AS "true";
+ true 
+------
+ t
+(1 row)
+
+-- without position data, phrase search does not match
+SELECT strip(to_tsvector2('simple', '1 2 3 4')) @@ '1 <-> 2 <-> 3' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+select to_tsvector2('simple', 'q x q y') @@ 'q <-> (x & y)' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+select to_tsvector2('simple', 'q x') @@ 'q <-> (x | y <-> z)' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'q y') @@ 'q <-> (x | y <-> z)' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+select to_tsvector2('simple', 'q y z') @@ 'q <-> (x | y <-> z)' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'q y x') @@ 'q <-> (x | y <-> z)' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+select to_tsvector2('simple', 'q x y') @@ 'q <-> (x | y <-> z)' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'q x') @@ '(x | y <-> z) <-> q' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+select to_tsvector2('simple', 'x q') @@ '(x | y <-> z) <-> q' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'x y q') @@ '(x | y <-> z) <-> q' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+select to_tsvector2('simple', 'x y z') @@ '(x | y <-> z) <-> q' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+select to_tsvector2('simple', 'x y z q') @@ '(x | y <-> z) <-> q' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'y z q') @@ '(x | y <-> z) <-> q' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'y y q') @@ '(x | y <-> z) <-> q' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+select to_tsvector2('simple', 'y y q') @@ '(!x | y <-> z) <-> q' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'x y q') @@ '(!x | y <-> z) <-> q' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'y y q') @@ '(x | y <-> !z) <-> q' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'x q') @@ '(x | y <-> !z) <-> q' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'x q') @@ '(!x | y <-> z) <-> q' AS "false";
+ false 
+-------
+ f
+(1 row)
+
+select to_tsvector2('simple', 'z q') @@ '(!x | y <-> z) <-> q' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'x y q y') @@ '!x <-> y' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', 'x y q y') @@ '!foo' AS "true";
+ true 
+------
+ t
+(1 row)
+
+select to_tsvector2('simple', '') @@ '!foo' AS "true";
+ true 
+------
+ t
+(1 row)
+
+DROP EXTENSION tsvector2;
