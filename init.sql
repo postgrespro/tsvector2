@@ -211,6 +211,12 @@ CREATE FUNCTION to_tsvector2(regconfig, text)
 	AS 'MODULE_PATHNAME', 'to_tsvector2_byid'
 	LANGUAGE C STRICT IMMUTABLE;
 
+CREATE FUNCTION ts_filter(tsvector2, "char"[])
+	RETURNS tsvector2
+	AS 'MODULE_PATHNAME', 'tsvector2_filter'
+	LANGUAGE C STRICT IMMUTABLE;
+
+-- array conversion
 CREATE FUNCTION array_to_tsvector2(text[])
 	RETURNS tsvector2
 	AS 'MODULE_PATHNAME'
@@ -221,11 +227,7 @@ CREATE FUNCTION tsvector2_to_array(tsvector2)
 	AS 'MODULE_PATHNAME'
 	LANGUAGE C STRICT IMMUTABLE;
 
-CREATE FUNCTION ts_filter(tsvector2, "char"[])
-	RETURNS tsvector2
-	AS 'MODULE_PATHNAME', 'tsvector2_filter'
-	LANGUAGE C STRICT IMMUTABLE;
-
+-- ts_delete
 CREATE FUNCTION ts_delete(tsvector2, text[])
 	RETURNS tsvector2
 	AS 'MODULE_PATHNAME', 'tsvector2_delete_arr'
@@ -234,4 +236,46 @@ CREATE FUNCTION ts_delete(tsvector2, text[])
 CREATE FUNCTION ts_delete(tsvector2, text)
 	RETURNS tsvector2
 	AS 'MODULE_PATHNAME', 'tsvector2_delete_str'
+	LANGUAGE C STRICT IMMUTABLE;
+
+-- ts_rank_cd
+CREATE FUNCTION ts_rank_cd(float4[], tsvector2, tsquery, int4)
+	RETURNS float4
+	AS 'MODULE_PATHNAME', 'tsvector2_rankcd_wttf'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION ts_rank_cd(float4[], tsvector2, tsquery)
+	RETURNS float4
+	AS 'MODULE_PATHNAME', 'tsvector2_rankcd_wtt'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION ts_rank_cd(tsvector2, tsquery, int4)
+	RETURNS float4
+	AS 'MODULE_PATHNAME', 'tsvector2_rankcd_ttf'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION ts_rank_cd(tsvector2, tsquery)
+	RETURNS float4
+	AS 'MODULE_PATHNAME', 'tsvector2_rankcd_tt'
+	LANGUAGE C STRICT IMMUTABLE;
+
+-- ts_rank
+CREATE FUNCTION ts_rank(float4[], tsvector2, tsquery, int4)
+	RETURNS float4
+	AS 'MODULE_PATHNAME', 'tsvector2_rank_wttf'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION ts_rank(float4[], tsvector2, tsquery)
+	RETURNS float4
+	AS 'MODULE_PATHNAME', 'tsvector2_rank_wtt'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION ts_rank(tsvector2, tsquery, int4)
+	RETURNS float4
+	AS 'MODULE_PATHNAME', 'tsvector2_rank_ttf'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION ts_rank(tsvector2, tsquery)
+	RETURNS float4
+	AS 'MODULE_PATHNAME', 'tsvector2_rank_tt'
 	LANGUAGE C STRICT IMMUTABLE;
