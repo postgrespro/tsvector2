@@ -110,7 +110,7 @@ silly_cmp_tsvector2(const TSVector2 a, const TSVector2 b)
 
 			if ((npos1 == 0 || npos2 == 0) && npos1 != npos2)
 				return npos1 > npos2 ? -1 : 1;
-			else if ((res = tsCompareString(lex1, len1, lex2, len2, false)) != 0)
+			else if ((res = ts2_compare_string(lex1, len1, lex2, len2, false)) != 0)
 			{
 				return res;
 			}
@@ -368,7 +368,7 @@ tsvector2_setweight_by_filter(PG_FUNCTION_ARGS)
 }
 
 #define compareEntry(pa, a, pb, b) \
-	tsCompareString((pa) + (a)->pos, (a)->len,	\
+	ts2_compare_string((pa) + (a)->pos, (a)->len,	\
 					(pb) + (b)->pos, (b)->len,	\
 					false)
 
@@ -420,7 +420,7 @@ tsvector2_bsearch(const TSVector2 tsv, char *lexeme, int lexeme_len)
 
 		StopMiddle = (StopLow + StopHigh) / 2;
 		str = tsvector2_getlexeme(tsv, StopMiddle, &entry);
-		cmp = tsCompareString(lexeme, lexeme_len,
+		cmp = ts2_compare_string(lexeme, lexeme_len,
 							  str, entry->len, false);
 
 		if (cmp < 0)
@@ -459,7 +459,7 @@ compare_text_lexemes(const void *va, const void *vb)
 	char	   *blex = VARDATA_ANY(b);
 	int			blex_len = VARSIZE_ANY_EXHDR(b);
 
-	return tsCompareString(alex, alex_len, blex, blex_len, false);
+	return ts2_compare_string(alex, alex_len, blex, blex_len, false);
 }
 
 /*
@@ -1144,7 +1144,7 @@ tsvector2_concat(PG_FUNCTION_ARGS)
 		int			lex_len = ENTRY_LEN(in1, ptr1),
 					lex2_len = ENTRY_LEN(in2, ptr2);
 
-		int			cmp = tsCompareString(lex, lex_len, lex2, lex2_len, false);
+		int			cmp = ts2_compare_string(lex, lex_len, lex2, lex2_len, false);
 
 		if (cmp < 0)
 		{						/* in1 first */
@@ -1303,7 +1303,7 @@ tsvector2_concat(PG_FUNCTION_ARGS)
  * if isPrefix = true then it returns zero value iff b has prefix a
  */
 int32
-tsCompareString(char *a, int lena, char *b, int lenb, bool prefix)
+ts2_compare_string(char *a, int lena, char *b, int lenb, bool prefix)
 {
 	int			cmp;
 
@@ -1463,7 +1463,7 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 		lexeme = tsvector2_getlexeme(chkval->vec, StopMiddle, &entry);
 
 		Assert(!entry->hasoff);
-		difference = tsCompareString(chkval->operand + val->distance,
+		difference = ts2_compare_string(chkval->operand + val->distance,
 									 val->length,
 									 lexeme,
 									 entry->len,
@@ -1505,7 +1505,7 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 
 			Assert(!entry->hasoff);
 			pv = get_lexeme_positions(lexeme, entry->len);
-			cmp = tsCompareString(chkval->operand + val->distance,
+			cmp = ts2_compare_string(chkval->operand + val->distance,
 								  val->length,
 								  lexeme,
 								  entry->len,
@@ -2134,7 +2134,7 @@ check_weight(char *lexeme, WordEntry2 *wptr, int8 weight)
 }
 
 #define compareStatWord(a,e,t)							\
-	(tsCompareString((a)->lexeme, (a)->lenlexeme,		\
+	(ts2_compare_string((a)->lexeme, (a)->lenlexeme,		\
 					t, (e)->len, false))
 
 static void
@@ -2500,8 +2500,9 @@ ts_stat_sql(MemoryContext persistentContext, text *txt, text *ws)
 	return stat;
 }
 
+PG_FUNCTION_INFO_V1(tsvector2_stat1);
 Datum
-ts_stat1(PG_FUNCTION_ARGS)
+tsvector2_stat1(PG_FUNCTION_ARGS)
 {
 	FuncCallContext *funcctx;
 	Datum		result;
@@ -2525,8 +2526,9 @@ ts_stat1(PG_FUNCTION_ARGS)
 	SRF_RETURN_DONE(funcctx);
 }
 
+PG_FUNCTION_INFO_V1(tsvector2_stat2);
 Datum
-ts_stat2(PG_FUNCTION_ARGS)
+tsvector2_stat2(PG_FUNCTION_ARGS)
 {
 	FuncCallContext *funcctx;
 	Datum		result;
@@ -2560,7 +2562,7 @@ compareWORD(const void *a, const void *b)
 {
 	int			res;
 
-	res = tsCompareString(
+	res = ts2_compare_string(
 						  ((const ParsedWord *) a)->word, ((const ParsedWord *) a)->len,
 						  ((const ParsedWord *) b)->word, ((const ParsedWord *) b)->len,
 						  false);

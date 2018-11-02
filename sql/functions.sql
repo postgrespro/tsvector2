@@ -45,4 +45,9 @@ SELECT ts_filter('base:7A empir:17 evil:15 first:11 galact:16 hidden:6A rebel:1A
 SELECT ts_filter('base hidden rebel spaceship strike'::tsvector2, '{a}');
 SELECT ts_filter('base hidden rebel spaceship strike'::tsvector2, '{a,b,NULL}');
 
-drop extension tsvector2;
+CREATE TABLE test_tsvector2 (a tsvector2);
+INSERT INTO test_tsvector2 VALUES ('DFG:1A,2B,6C,10 FGH');
+SELECT * FROM tsvector2_stat('SELECT a FROM test_tsvector2') ORDER BY ndoc DESC, nentry DESC, word LIMIT 10;
+SELECT * FROM tsvector2_stat('SELECT a FROM test_tsvector2', 'AB') ORDER BY ndoc DESC, nentry DESC, word;
+
+drop extension tsvector2 cascade;

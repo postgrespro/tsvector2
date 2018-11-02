@@ -157,9 +157,10 @@ TSVector2	tsvector2_upgrade(Datum orig, bool copy);
 #define PG_GETARG_TSVECTOR2_COPY(n)	DatumGetTSVector2Copy(PG_GETARG_DATUM(n))
 #define PG_RETURN_TSVECTOR2(x)		return TSVector2GetDatum(x)
 
-int tsvector2_getoffset(TSVector2 vec, int idx, WordEntry2 **we);
-char *tsvector2_addlexeme(TSVector2 tsv, int idx, int *dataoff,
+extern int tsvector2_getoffset(TSVector2 vec, int idx, WordEntry2 **we);
+extern char *tsvector2_addlexeme(TSVector2 tsv, int idx, int *dataoff,
 	char *lexeme, int lexeme_len, WordEntryPos *pos, int npos);
+extern int32 ts2_compare_string(char *a, int lena, char *b, int lenb, bool prefix);
 
 /* Returns lexeme and its entry by given index from TSVector2 */
 inline static char *

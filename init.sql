@@ -178,6 +178,19 @@ CREATE FUNCTION unnest(tsvector2, OUT lexeme text, OUT positions smallint[],
 	AS 'MODULE_PATHNAME', 'tsvector2_unnest'
 	LANGUAGE C STRICT IMMUTABLE;
 
+/* TODO: documentation should mention that ts_stat is not applicable to tsvector2 */
+CREATE FUNCTION tsvector2_stat(sqlquery text, OUT word text, OUT ndoc integer,
+	OUT nentry integer)
+	RETURNS SETOF RECORD
+	AS 'MODULE_PATHNAME', 'tsvector2_stat1'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION tsvector2_stat(sqlquery text, weights text,
+	OUT word text, OUT ndoc integer, OUT nentry integer)
+	RETURNS SETOF RECORD
+	AS 'MODULE_PATHNAME', 'tsvector2_stat2'
+	LANGUAGE C STRICT IMMUTABLE;
+
 CREATE FUNCTION setweight(tsvector2, "char")
 	RETURNS tsvector2
 	AS 'MODULE_PATHNAME', 'tsvector2_setweight'

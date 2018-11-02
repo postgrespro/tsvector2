@@ -1,5 +1,5 @@
 MODULE_big = tsvector2
-OBJS = src/tsvector2.o src/tsvector2_op.o
+OBJS = src/tsvector2.o src/tsvector2_op.o src/tsvector2_rank.o
 
 EXTENSION = tsvector2
 EXTVERSION = 1.0
