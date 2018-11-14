@@ -39,7 +39,11 @@ jsonb_to_tsvector2_worker(Oid cfgId, Jsonb *jb, uint32 flags)
 	state.prs = &prs;
 	state.cfgId = cfgId;
 
+#if PG_VERSION_NUM >= 110000
 	iterate_jsonb_values(jb, flags, &state, add_to_tsvector2);
+#else
+	iterate_jsonb_string_values(jb, &state, add_to_tsvector2);
+#endif
 
 	return make_tsvector2(&prs);
 }
@@ -81,7 +85,11 @@ jsonb_to_tsvector2_byid(PG_FUNCTION_ARGS)
 	Jsonb	   *jb = PG_GETARG_JSONB_P(1);
 	Jsonb	   *jbFlags = PG_GETARG_JSONB_P(2);
 	TSVector2	result;
-	uint32		flags = parse_jsonb_index_flags(jbFlags);
+	uint32		flags = 0;
+
+#if PG_VERSION_NUM >= 110000
+	flags = parse_jsonb_index_flags(jbFlags);
+#endif
 
 	result = jsonb_to_tsvector2_worker(cfgId, jb, flags);
 	PG_FREE_IF_COPY(jb, 1);
@@ -98,7 +106,11 @@ jsonb_to_tsvector2(PG_FUNCTION_ARGS)
 	Jsonb	   *jbFlags = PG_GETARG_JSONB_P(1);
 	Oid			cfgId;
 	TSVector2	result;
-	uint32		flags = parse_jsonb_index_flags(jbFlags);
+	uint32		flags = 0;
+
+#if PG_VERSION_NUM >= 110000
+	flags = parse_jsonb_index_flags(jbFlags);
+#endif
 
 	cfgId = getTSCurrentConfig(true);
 	result = jsonb_to_tsvector2_worker(cfgId, jb, flags);
@@ -122,7 +134,11 @@ json_to_tsvector2_worker(Oid cfgId, text *json, uint32 flags)
 	state.prs = &prs;
 	state.cfgId = cfgId;
 
+#if PG_VERSION_NUM >= 110000
 	iterate_json_values(json, flags, &state, add_to_tsvector2);
+#else
+	iterate_json_string_values(json, &state, add_to_tsvector2);
+#endif
 
 	return make_tsvector2(&prs);
 }
@@ -164,7 +180,11 @@ json_to_tsvector2_byid(PG_FUNCTION_ARGS)
 	text	   *json = PG_GETARG_TEXT_P(1);
 	Jsonb	   *jbFlags = PG_GETARG_JSONB_P(2);
 	TSVector2	result;
-	uint32		flags = parse_jsonb_index_flags(jbFlags);
+	uint32		flags = 0;
+
+#if PG_VERSION_NUM >= 110000
+	flags = parse_jsonb_index_flags(jbFlags);
+#endif
 
 	result = json_to_tsvector2_worker(cfgId, json, flags);
 	PG_FREE_IF_COPY(json, 1);
@@ -181,7 +201,11 @@ json_to_tsvector2(PG_FUNCTION_ARGS)
 	Jsonb	   *jbFlags = PG_GETARG_JSONB_P(1);
 	Oid			cfgId;
 	TSVector2	result;
-	uint32		flags = parse_jsonb_index_flags(jbFlags);
+	uint32		flags = 0;
+
+#if PG_VERSION_NUM >= 110000
+	flags = parse_jsonb_index_flags(jbFlags);
+#endif
 
 	cfgId = getTSCurrentConfig(true);
 	result = json_to_tsvector2_worker(cfgId, json, flags);

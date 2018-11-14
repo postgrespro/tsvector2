@@ -348,6 +348,5 @@ SELECT * FROM tsvector2_stat('SELECT a FROM test_tsvector2', 'AB') ORDER BY ndoc
 (0 rows)
 
 RESET enable_seqscan;
-DROP EXTENSION tsvector2 CASCADE;
-NOTICE:  drop cascades to column a of table test_tsvector2
 DROP TABLE test_tsvector2 CASCADE;
+DROP EXTENSION tsvector2 CASCADE;

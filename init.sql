@@ -232,6 +232,52 @@ CREATE FUNCTION tsvector2_to_array(tsvector2)
 	AS 'MODULE_PATHNAME'
 	LANGUAGE C STRICT IMMUTABLE;
 
+-- jsonb conversion
+CREATE FUNCTION jsonb_to_tsvector2(jsonb, jsonb)
+	RETURNS tsvector2
+	AS 'MODULE_PATHNAME'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION jsonb_to_tsvector2(regconfig, jsonb, jsonb)
+	RETURNS tsvector2
+	AS 'MODULE_PATHNAME', 'jsonb_to_tsvector2_byid'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION json_to_tsvector2(json, jsonb)
+	RETURNS tsvector2
+	AS 'MODULE_PATHNAME'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION json_to_tsvector2(regconfig, json, jsonb)
+	RETURNS tsvector2
+	AS 'MODULE_PATHNAME', 'json_to_tsvector2_byid'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION to_tsvector2(regconfig, json, jsonb)
+	RETURNS tsvector2
+	AS 'MODULE_PATHNAME', 'json_to_tsvector2_byid'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION to_tsvector2(jsonb)
+	RETURNS tsvector2
+	AS 'MODULE_PATHNAME', 'jsonb_string_to_tsvector2'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION to_tsvector2(json)
+	RETURNS tsvector2
+	AS 'MODULE_PATHNAME', 'json_string_to_tsvector2'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION to_tsvector2(regconfig, jsonb)
+	RETURNS tsvector2
+	AS 'MODULE_PATHNAME', 'jsonb_string_to_tsvector2_byid'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION to_tsvector2(regconfig, json)
+	RETURNS tsvector2
+	AS 'MODULE_PATHNAME', 'json_string_to_tsvector2_byid'
+	LANGUAGE C STRICT IMMUTABLE;
+
 -- ts_delete
 CREATE FUNCTION ts_delete(tsvector2, text[])
 	RETURNS tsvector2

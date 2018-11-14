@@ -29,9 +29,6 @@
 typedef char BITVEC[SIGLEN];
 typedef char *BITVECP;
 
-#define LOOPBYTE \
-			for(i=0;i<SIGLEN;i++)
-
 #define GETBYTE(x,i) ( *( (BITVECP)(x) + (int)( (i) / BITS_PER_BYTE ) ) )
 #define GETBITBYTE(x,i) ( ((char)(x)) >> (i) & 0x01 )
 #define CLRBIT(x,i)   GETBYTE(x,i) &= ~( 0x01 << ( (i) % BITS_PER_BYTE ) )
@@ -193,7 +190,7 @@ gist_tsvector2_compress(PG_FUNCTION_ARGS)
 		SignTSVector *res;
 		BITVECP		sign = GETSIGN(DatumGetPointer(entry->key));
 
-		LOOPBYTE
+		for (i=0; i < SIGLEN; i++)
 		{
 			if ((sign[i] & 0xff) != 0xff)
 				PG_RETURN_POINTER(retval);

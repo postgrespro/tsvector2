@@ -176,4 +176,24 @@ tsvector2_getlexeme(TSVector2 vec, int idx, WordEntry2 **we)
 	return tsvector2_storage(vec) + tsvector2_getoffset(vec, idx, we);
 }
 
+#ifndef PG_GETARG_JSONB_P
+#define PG_GETARG_JSONB_P(x) PG_GETARG_JSONB(x)
+#endif
+
+#if PG_VERSION_NUM < 110000
+typedef enum JsonToIndex
+{
+	jtiKey = 0x01,
+	jtiString = 0x02,
+	jtiNumeric = 0x04,
+	jtiBool = 0x08,
+	jtiAll = jtiKey | jtiString | jtiNumeric | jtiBool
+} JsonToIndex;
+
+#define init_tsvector_parser_compat(x,y) init_tsvector_parser(x,y,false)
+#define pq_sendint32(x,y) pq_sendint(x,y,4)
+#define pq_sendint16(x,y) pq_sendint(x,y,2)
+#else
+#define init_tsvector_parser_compat(x,y) init_tsvector_parser(x,y)
+#endif
 #endif

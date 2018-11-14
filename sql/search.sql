@@ -83,5 +83,5 @@ SELECT * FROM tsvector2_stat('SELECT a FROM test_tsvector2') ORDER BY ndoc DESC,
 SELECT * FROM tsvector2_stat('SELECT a FROM test_tsvector2', 'AB') ORDER BY ndoc DESC, nentry DESC, word;
 
 RESET enable_seqscan;
-DROP EXTENSION tsvector2 CASCADE;
 DROP TABLE test_tsvector2 CASCADE;
+DROP EXTENSION tsvector2 CASCADE;
