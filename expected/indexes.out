@@ -3,6 +3,8 @@ CREATE EXTENSION tsvector2 SCHEMA test;
 ERROR:  extension "tsvector2" must be installed in schema "public"
 CREATE EXTENSION tsvector2;
 CREATE TABLE test.t1(a tsvector2);
+-- use only indexes if possible
+SET enable_seqscan = off;
 CREATE OR REPLACE FUNCTION test.insert_records()
 RETURNS VOID AS $$
 DECLARE
@@ -12,9 +14,9 @@ BEGIN
 		SELECT i FROM generate_series(1, 1000) i
 	LOOP
 		INSERT INTO test.t1(a)
-			SELECT array_to_tsvector2(array_agg(repeat(letter, floor(random() * count + 1)::int)))
+			SELECT array_to_tsvector2(array_agg(repeat(letter, letters_count)))
 			FROM (
-				SELECT chr(i) AS letter, b AS count
+				SELECT chr(i) AS letter, b AS letters_count
 				FROM generate_series(ascii('a'), ascii('z')) i
 				FULL OUTER JOIN
 				(SELECT b FROM generate_series(3, 12) b) t2
@@ -29,8 +31,8 @@ SELECT test.insert_records();
  
 (1 row)
 
+-- btree
 CREATE INDEX i1 ON test.t1 USING btree(a);
-SET enable_seqscan = off;
 EXPLAIN (COSTS OFF) SELECT * FROM test.t1 WHERE a >= 'a:1 b:2'::tsvector2;
                        QUERY PLAN                        
 ---------------------------------------------------------
@@ -40,6 +42,31 @@ EXPLAIN (COSTS OFF) SELECT * FROM test.t1 WHERE a >= 'a:1 b:2'::tsvector2;
          Index Cond: (a >= '''a'':1 ''b'':2'::tsvector2)
 (4 rows)
 
+SELECT sum(length(a)) FROM test.t1 WHERE a >= 'a:1 b:2'::tsvector2;
+  sum   
+--------
+ 260000
+(1 row)
+
+DROP INDEX test.i1;
+-- gin
+CREATE INDEX i2 ON test.t1 USING gin(a);
+EXPLAIN (COSTS OFF) SELECT * FROM test.t1 WHERE a @@ 'zzz';
+                  QUERY PLAN                   
+-----------------------------------------------
+ Bitmap Heap Scan on t1
+   Recheck Cond: (a @@ '''zzz'''::tsquery)
+   ->  Bitmap Index Scan on i2
+         Index Cond: (a @@ '''zzz'''::tsquery)
+(4 rows)
+
+SELECT sum(length(a)) FROM test.t1 WHERE a @@ 'zzz';
+  sum   
+--------
+ 260000
+(1 row)
+
+DROP INDEX test.i2;
 DROP SCHEMA test CASCADE;
 NOTICE:  drop cascades to 2 other objects
 DETAIL:  drop cascades to table test.t1

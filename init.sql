@@ -291,7 +291,7 @@ CREATE OPERATOR FAMILY tsvector2_ops USING gist;
 CREATE OPERATOR FAMILY tsvector2_ops USING gin;
 
 -- btree support
-CREATE OPERATOR CLASS tsvector2_ops DEFAULT
+CREATE OPERATOR CLASS bt_tsvector2_ops DEFAULT
 	FOR TYPE tsvector2 USING btree FAMILY tsvector2_ops AS
 	OPERATOR 1  <,
 	OPERATOR 2  <=,
@@ -299,3 +299,21 @@ CREATE OPERATOR CLASS tsvector2_ops DEFAULT
 	OPERATOR 4  >=,
 	OPERATOR 5  >,
 	FUNCTION 1  tsvector2_cmp(tsvector2, tsvector2);
+
+-- gin support
+CREATE FUNCTION gin_extract_tsvector2(tsvector2, internal, internal)
+	RETURNS internal
+	AS 'MODULE_PATHNAME'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE OPERATOR CLASS gin_tsvector2_ops DEFAULT
+	FOR TYPE tsvector2 USING gin FAMILY tsvector2_ops AS
+	OPERATOR 1  @@ (tsvector2, tsquery),
+	FUNCTION 1  gin_cmp_tslexeme(text,text),
+	FUNCTION 2  gin_extract_tsvector2(tsvector2,internal,internal),
+	FUNCTION 3  gin_extract_tsquery(tsquery,internal,int2,internal,internal,internal,internal),
+	FUNCTION 4  gin_tsquery_consistent(internal,int2,tsquery,int4,internal,internal,internal,internal),
+	FUNCTION 5  gin_cmp_prefix(text,text,int2,internal),
+	FUNCTION 6  gin_tsquery_triconsistent;
+
+-- gist support

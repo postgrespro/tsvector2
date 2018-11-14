@@ -19,7 +19,7 @@
 
 #include "tsvector2.h"
 
-
+PG_FUNCTION_INFO_V1(gin_extract_tsvector2);
 Datum
 gin_extract_tsvector2(PG_FUNCTION_ARGS)
 {
