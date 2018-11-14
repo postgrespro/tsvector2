@@ -1,3 +1,5 @@
 comment = 'tsvector2 - extended format of tsvector'
 default_version = '1.0'
 module_pathname = '$libdir/tsvector2'
+relocatable = false
+schema = 'public'

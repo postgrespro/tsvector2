@@ -1,12 +1,12 @@
 MODULE_big = tsvector2
 OBJS = src/tsvector2.o src/tsvector2_op.o src/tsvector2_rank.o \
-	   src/tsvector2_conv.o src/tsvector2_gin.o
+	   src/tsvector2_conv.o
 
 EXTENSION = tsvector2
 EXTVERSION = 1.0
 DATA_built = tsvector2--$(EXTVERSION).sql
 
-REGRESS = operators functions match rank json
+REGRESS = operators functions match rank json btree
 
 EXTRA_CLEAN = tsvector2--$(EXTVERSION).sql
 

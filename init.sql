@@ -68,6 +68,11 @@ CREATE FUNCTION tsvector2_gt(tsvector2, tsvector2)
 	AS 'MODULE_PATHNAME'
 	LANGUAGE C STRICT IMMUTABLE;
 
+CREATE FUNCTION tsvector2_cmp(tsvector2, tsvector2)
+	RETURNS int
+	AS 'MODULE_PATHNAME'
+	LANGUAGE C STRICT IMMUTABLE;
+
 CREATE FUNCTION tsvector2_match_tsquery(tsvector2, tsquery)
 	RETURNS bool
 	AS 'MODULE_PATHNAME'
@@ -279,3 +284,18 @@ CREATE FUNCTION ts_rank(tsvector2, tsquery)
 	RETURNS float4
 	AS 'MODULE_PATHNAME', 'tsvector2_rank_tt'
 	LANGUAGE C STRICT IMMUTABLE;
+
+-- operator families for various types of indexes
+CREATE OPERATOR FAMILY tsvector2_ops USING btree;
+CREATE OPERATOR FAMILY tsvector2_ops USING gist;
+CREATE OPERATOR FAMILY tsvector2_ops USING gin;
+
+-- btree support
+CREATE OPERATOR CLASS tsvector2_ops DEFAULT
+	FOR TYPE tsvector2 USING btree FAMILY tsvector2_ops AS
+	OPERATOR 1  <,
+	OPERATOR 2  <=,
+	OPERATOR 3  =,
+	OPERATOR 4  >=,
+	OPERATOR 5  >,
+	FUNCTION 1  tsvector2_cmp(tsvector2, tsvector2);
