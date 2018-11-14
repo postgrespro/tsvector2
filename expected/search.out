@@ -58,10 +58,57 @@ SELECT count(*) FROM test_tsvector2 WHERE a @@ '!no_such_lexeme';
 -------
    508
 (1 row)
-CREATE INDEX wowidx ON test_tsvector2 USING gin (a);
 SET enable_seqscan=OFF;
+CREATE INDEX wowidx ON test_tsvector2 USING btree(a);
+SELECT count(*) FROM test_tsvector2 WHERE a > 'lq d7 i4 7w y0 qt gw ch o6 eo';
+ count 
+-------
+   499
+(1 row)
+
+SELECT count(*) FROM test_tsvector2 WHERE a < 'lq d7 i4 7w y0 qt gw ch o6 eo';
+ count 
+-------
+     8
+(1 row)
+
+SELECT count(*) FROM test_tsvector2 WHERE a >= 'lq d7 i4 7w y0 qt gw ch o6 eo';
+ count 
+-------
+   500
+(1 row)
+
+SELECT count(*) FROM test_tsvector2 WHERE a <= 'lq d7 i4 7w y0 qt gw ch o6 eo';
+ count 
+-------
+     9
+(1 row)
+
+SELECT count(*) FROM test_tsvector2 WHERE a = 'lq d7 i4 7w y0 qt gw ch o6 eo';
+ count 
+-------
+     1
+(1 row)
+
+SELECT count(*) FROM test_tsvector2 WHERE a <> 'lq d7 i4 7w y0 qt gw ch o6 eo';
+ count 
+-------
+   507
+(1 row)
+
+EXPLAIN (COSTS OFF) SELECT count(*) FROM test_tsvector2 WHERE a <> 'lq d7 i4 7w y0 qt gw ch o6 eo';
+                                                QUERY PLAN                                                 
+-----------------------------------------------------------------------------------------------------------
+ Aggregate
+   ->  Bitmap Heap Scan on test_tsvector2
+         Filter: (a <> '''7w'' ''ch'' ''d7'' ''eo'' ''gw'' ''i4'' ''lq'' ''o6'' ''qt'' ''y0'''::tsvector2)
+         ->  Bitmap Index Scan on wowidx
+(4 rows)
+
+DROP INDEX wowidx;
+CREATE INDEX wowidx ON test_tsvector2 USING gin (a);
 -- GIN only supports bitmapscan, so no need to test plain indexscan
-explain (costs off) SELECT count(*) FROM test_tsvector2 WHERE a @@ 'wr|qh';
+EXPLAIN (COSTS OFF) SELECT count(*) FROM test_tsvector2 WHERE a @@ 'wr|qh';
                          QUERY PLAN                          
 -------------------------------------------------------------
  Aggregate

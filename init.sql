@@ -293,11 +293,11 @@ CREATE OPERATOR FAMILY tsvector2_ops USING gin;
 -- btree support
 CREATE OPERATOR CLASS bt_tsvector2_ops DEFAULT
 	FOR TYPE tsvector2 USING btree FAMILY tsvector2_ops AS
-	OPERATOR 1  <,
-	OPERATOR 2  <=,
-	OPERATOR 3  =,
-	OPERATOR 4  >=,
-	OPERATOR 5  >,
+	OPERATOR 1  <  (tsvector2, tsvector2),
+	OPERATOR 2  <= (tsvector2, tsvector2),
+	OPERATOR 3  =  (tsvector2, tsvector2),
+	OPERATOR 4  >= (tsvector2, tsvector2),
+	OPERATOR 5  >  (tsvector2, tsvector2),
 	FUNCTION 1  tsvector2_cmp(tsvector2, tsvector2);
 
 -- gin support
