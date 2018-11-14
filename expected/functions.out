@@ -220,20 +220,4 @@ SELECT ts_filter('base hidden rebel spaceship strike'::tsvector2, '{a}');
 
 SELECT ts_filter('base hidden rebel spaceship strike'::tsvector2, '{a,b,NULL}');
 ERROR:  weight array may not contain nulls
-CREATE TABLE test_tsvector2 (a tsvector2);
-INSERT INTO test_tsvector2 VALUES ('DFG:1A,2B,6C,10 FGH');
-SELECT * FROM tsvector2_stat('SELECT a FROM test_tsvector2') ORDER BY ndoc DESC, nentry DESC, word LIMIT 10;
- word | ndoc | nentry 
-------+------+--------
- DFG  |    1 |      4
- FGH  |    1 |      1
-(2 rows)
-
-SELECT * FROM tsvector2_stat('SELECT a FROM test_tsvector2', 'AB') ORDER BY ndoc DESC, nentry DESC, word;
- word | ndoc | nentry 
-------+------+--------
- DFG  |    1 |      2
-(1 row)
-
 drop extension tsvector2 cascade;
-NOTICE:  drop cascades to column a of table test_tsvector2

@@ -6,7 +6,7 @@ EXTENSION = tsvector2
 EXTVERSION = 1.0
 DATA_built = tsvector2--$(EXTVERSION).sql
 
-REGRESS = operators functions match rank json indexes
+REGRESS = operators functions match rank json index_data search
 
 EXTRA_CLEAN = tsvector2--$(EXTVERSION).sql
 
