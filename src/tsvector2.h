@@ -129,7 +129,7 @@ do { \
 	(w)++;												\
 	Assert(!y->hasoff);									\
 	(p) += SHORTALIGN(y->len) + y->npos * sizeof(WordEntryPos); \
-	if ((w) - ARRPTR(x) < x->size && w->hasoff)		\
+	if ((w) - tsvector2_entries(x) < x->size && w->hasoff)		\
 		(p) = INTALIGN(p) + sizeof(WordEntry2);			\
 } while (0);
 

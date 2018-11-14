@@ -317,3 +317,19 @@ CREATE OPERATOR CLASS gin_tsvector2_ops DEFAULT
 	FUNCTION 6  gin_tsquery_triconsistent;
 
 -- gist support
+CREATE FUNCTION gist_tsvector2_compress(internal,tsquery,int2,oid,internal)
+	RETURNS internal
+	AS 'MODULE_PATHNAME'
+	LANGUAGE C STRICT IMMUTABLE;
+
+-- don't mind tsvector mentioning, it's actually expecting tsquery anyway
+CREATE OPERATOR CLASS gist_tsvector2_ops DEFAULT
+	FOR TYPE tsvector2 USING gist FAMILY tsvector2_ops AS
+	OPERATOR 1  @@ (tsvector2, tsquery),
+	FUNCTION 1  gtsvector_consistent(internal,tsvector,int2,oid,internal),
+	FUNCTION 2  gtsvector_union,
+	FUNCTION 3  gist_tsvector2_compress,
+	FUNCTION 4  gtsvector_decompress,
+	FUNCTION 5  gtsvector_penalty,
+	FUNCTION 6  gtsvector_picksplit,
+	FUNCTION 7  gtsvector_same;

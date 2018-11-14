@@ -1,6 +1,6 @@
 MODULE_big = tsvector2
 OBJS = src/tsvector2.o src/tsvector2_op.o src/tsvector2_rank.o \
-	   src/tsvector2_conv.o src/tsvector2_gin.o
+	   src/tsvector2_conv.o src/tsvector2_gin.o src/tsvector2_gist.o
 
 EXTENSION = tsvector2
 EXTVERSION = 1.0
