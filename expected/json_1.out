@@ -1,0 +1,183 @@
+CREATE EXTENSION tsvector2;
+-- jsonb to tsvector
+select to_tsvector2('{"a": "aaa bbb ddd ccc", "b": ["eee fff ggg"], "c": {"d": "hhh iii"}}'::jsonb);
+                               to_tsvector2                                
+---------------------------------------------------------------------------
+ 'aaa':1 'bbb':2 'ccc':4 'ddd':3 'eee':6 'fff':7 'ggg':8 'hhh':10 'iii':11
+(1 row)
+
+-- jsonb to tsvector with config
+select to_tsvector2('simple', '{"a": "aaa bbb ddd ccc", "b": ["eee fff ggg"], "c": {"d": "hhh iii"}}'::jsonb);
+                               to_tsvector2                                
+---------------------------------------------------------------------------
+ 'aaa':1 'bbb':2 'ccc':4 'ddd':3 'eee':6 'fff':7 'ggg':8 'hhh':10 'iii':11
+(1 row)
+
+-- jsonb to tsvector with stop words
+select to_tsvector2('english', '{"a": "aaa in bbb ddd ccc", "b": ["the eee fff ggg"], "c": {"d": "hhh. iii"}}'::jsonb);
+                                to_tsvector2                                
+----------------------------------------------------------------------------
+ 'aaa':1 'bbb':3 'ccc':5 'ddd':4 'eee':8 'fff':9 'ggg':10 'hhh':12 'iii':13
+(1 row)
+
+-- jsonb to tsvector with numeric values
+select to_tsvector2('english', '{"a": "aaa in bbb ddd ccc", "b": 123, "c": 456}'::jsonb);
+          to_tsvector2           
+---------------------------------
+ 'aaa':1 'bbb':3 'ccc':5 'ddd':4
+(1 row)
+
+-- jsonb_to_tsvector2
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '"all"');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '"key"');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '"string"');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '"numeric"');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '"boolean"');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '["string", "numeric"]');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '"all"');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '"key"');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '"string"');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '"numeric"');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '"boolean"');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '["string", "numeric"]');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+-- ts_vector corner cases
+select to_tsvector2('""'::jsonb);
+ to_tsvector2 
+--------------
+ 
+(1 row)
+
+select to_tsvector2('{}'::jsonb);
+ to_tsvector2 
+--------------
+ 
+(1 row)
+
+select to_tsvector2('[]'::jsonb);
+ to_tsvector2 
+--------------
+ 
+(1 row)
+
+select to_tsvector2('null'::jsonb);
+ to_tsvector2 
+--------------
+ 
+(1 row)
+
+-- jsonb_to_tsvector2 corner cases
+select jsonb_to_tsvector2('""'::jsonb, '"all"');
+ jsonb_to_tsvector2 
+--------------------
+ 
+(1 row)
+
+select jsonb_to_tsvector2('{}'::jsonb, '"all"');
+ jsonb_to_tsvector2 
+--------------------
+ 
+(1 row)
+
+select jsonb_to_tsvector2('[]'::jsonb, '"all"');
+ jsonb_to_tsvector2 
+--------------------
+ 
+(1 row)
+
+select jsonb_to_tsvector2('null'::jsonb, '"all"');
+ jsonb_to_tsvector2 
+--------------------
+ 
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '""');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '{}');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '[]');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, 'null');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '["all", null]');
+ jsonb_to_tsvector2 
+--------------------
+ 'aaa':1 'bbb':3
+(1 row)
+
+DROP EXTENSION tsvector2;
