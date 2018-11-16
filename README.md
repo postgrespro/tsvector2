@@ -1,16 +1,19 @@
 tsvector2
 ==========
 
-Extended tsvector type for PostgreSQL 10+. It was implemented to provide better
+Extended `tsvector` type for PostgreSQL 10+. It was implemented to provide better
 compression and to remove 1MB size limitation of original tsvector type.
 
 It could be used as transparent replacement of original tsvector and supports
-all its functions and index types. Functions that contain `tsvector` in their
+all its functions, operators and index types. Functions that contain `tsvector` in their
 names have been changed to `tsvector2`. Full list of these functions specified
 below.
 
-tsvector2 specific functions
------------------------------
+Refer to PostgreSQL [documentation](https://www.postgresql.org/docs/current/datatype-textsearch.html)
+to get details about `tsvector`. They can be also applied to `tsvector2`.
+
+`tsvector2` specific functions
+------------------------------
 
 * `to_tsvector2` (from `text`, `json`, `jsonb` types)
 * `array_to_tsvector2`
@@ -18,3 +21,20 @@ tsvector2 specific functions
 * `tsvector2_stat` (should be used instead of `ts_stat`)
 * `jsonb_to_tsvector2`
 * `json_to_tsvector2`
+* `tsvector2_update_trigger`
+* `tsvector2_update_trigger_column`
+
+Notice that `jsonb_to_tsvector2` and `json_to_tsvector2` work different on
+PostgreSQL 10 and 11. Same applies to `tsvector` functions.
+
+Common functions that could be safely used on both types
+--------------------------------------------------------
+
+* `strip`
+* `unnest`
+* `length`
+* `setweight`
+* `ts_rank`
+* `ts_rank_cd`
+* `ts_delete`
+* `ts_filter`

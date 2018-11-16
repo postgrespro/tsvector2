@@ -2549,3 +2549,181 @@ tsvector2_stat2(PG_FUNCTION_ARGS)
 		SRF_RETURN_NEXT(funcctx, result);
 	SRF_RETURN_DONE(funcctx);
 }
+
+/*
+ * Triggers for automatic update of a tsvector2 column from text column(s)
+ *
+ * Trigger arguments are either
+ *		name of tsvector2 col, name of tsconfig to use, name(s) of text col(s)
+ *		name of tsvector2 col, name of regconfig col, name(s) of text col(s)
+ * ie, tsconfig can either be specified by name, or indirectly as the
+ * contents of a regconfig field in the row.  If the name is used, it must
+ * be explicitly schema-qualified.
+ */
+static Datum
+tsvector2_update_trigger(PG_FUNCTION_ARGS, bool config_column)
+{
+	TriggerData *trigdata;
+	Trigger    *trigger;
+	Relation	rel;
+	HeapTuple	rettuple = NULL;
+	int			tsvector_attr_num,
+				i;
+	ParsedText	prs;
+	Datum		datum;
+	bool		isnull;
+	text	   *txt;
+	Oid			cfgId;
+
+	/* Check call context */
+	if (!CALLED_AS_TRIGGER(fcinfo)) /* internal error */
+		elog(ERROR, "tsvector2_update_trigger: not fired by trigger manager");
+
+	trigdata = (TriggerData *) fcinfo->context;
+	if (!TRIGGER_FIRED_FOR_ROW(trigdata->tg_event))
+		elog(ERROR, "tsvector2_update_trigger: must be fired for row");
+	if (!TRIGGER_FIRED_BEFORE(trigdata->tg_event))
+		elog(ERROR, "tsvector2_update_trigger: must be fired BEFORE event");
+
+	if (TRIGGER_FIRED_BY_INSERT(trigdata->tg_event))
+		rettuple = trigdata->tg_trigtuple;
+	else if (TRIGGER_FIRED_BY_UPDATE(trigdata->tg_event))
+		rettuple = trigdata->tg_newtuple;
+	else
+		elog(ERROR, "tsvector2_update_trigger: must be fired for INSERT or UPDATE");
+
+	trigger = trigdata->tg_trigger;
+	rel = trigdata->tg_relation;
+
+	if (trigger->tgnargs < 3)
+		elog(ERROR, "tsvector2_update_trigger: arguments must be tsvector_field, ts_config, text_field1, ...)");
+
+	/* Find the target tsvector2 column */
+	tsvector_attr_num = SPI_fnumber(rel->rd_att, trigger->tgargs[0]);
+	if (tsvector_attr_num == SPI_ERROR_NOATTRIBUTE)
+		ereport(ERROR,
+				(errcode(ERRCODE_UNDEFINED_COLUMN),
+				 errmsg("tsvector2 column \"%s\" does not exist",
+						trigger->tgargs[0])));
+	/* This will effectively reject system columns, so no separate test: */
+	if (strcmp(SPI_gettype(rel->rd_att, tsvector_attr_num), "tsvector2") != 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATATYPE_MISMATCH),
+				 errmsg("column \"%s\" is not of tsvector2 type",
+						trigger->tgargs[0])));
+
+	/* Find the configuration to use */
+	if (config_column)
+	{
+		int			config_attr_num;
+
+		config_attr_num = SPI_fnumber(rel->rd_att, trigger->tgargs[1]);
+		if (config_attr_num == SPI_ERROR_NOATTRIBUTE)
+			ereport(ERROR,
+					(errcode(ERRCODE_UNDEFINED_COLUMN),
+					 errmsg("configuration column \"%s\" does not exist",
+							trigger->tgargs[1])));
+		if (!IsBinaryCoercible(SPI_gettypeid(rel->rd_att, config_attr_num),
+							   REGCONFIGOID))
+			ereport(ERROR,
+					(errcode(ERRCODE_DATATYPE_MISMATCH),
+					 errmsg("column \"%s\" is not of regconfig type",
+							trigger->tgargs[1])));
+
+		datum = SPI_getbinval(rettuple, rel->rd_att, config_attr_num, &isnull);
+		if (isnull)
+			ereport(ERROR,
+					(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+					 errmsg("configuration column \"%s\" must not be null",
+							trigger->tgargs[1])));
+		cfgId = DatumGetObjectId(datum);
+	}
+	else
+	{
+		List	   *names;
+
+		names = stringToQualifiedNameList(trigger->tgargs[1]);
+		/* require a schema so that results are not search path dependent */
+		if (list_length(names) < 2)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("text search configuration name \"%s\" must be schema-qualified",
+							trigger->tgargs[1])));
+		cfgId = get_ts_config_oid(names, false);
+	}
+
+	/* initialize parse state */
+	prs.lenwords = 32;
+	prs.curwords = 0;
+	prs.pos = 0;
+	prs.words = (ParsedWord *) palloc(sizeof(ParsedWord) * prs.lenwords);
+
+	/* find all words in indexable column(s) */
+	for (i = 2; i < trigger->tgnargs; i++)
+	{
+		int			numattr;
+
+		numattr = SPI_fnumber(rel->rd_att, trigger->tgargs[i]);
+		if (numattr == SPI_ERROR_NOATTRIBUTE)
+			ereport(ERROR,
+					(errcode(ERRCODE_UNDEFINED_COLUMN),
+					 errmsg("column \"%s\" does not exist",
+							trigger->tgargs[i])));
+		if (!IsBinaryCoercible(SPI_gettypeid(rel->rd_att, numattr), TEXTOID))
+			ereport(ERROR,
+					(errcode(ERRCODE_DATATYPE_MISMATCH),
+					 errmsg("column \"%s\" is not of a character type",
+							trigger->tgargs[i])));
+
+		datum = SPI_getbinval(rettuple, rel->rd_att, numattr, &isnull);
+		if (isnull)
+			continue;
+
+		txt = DatumGetTextPP(datum);
+
+		parsetext(cfgId, &prs, VARDATA_ANY(txt), VARSIZE_ANY_EXHDR(txt));
+
+		if (txt != (text *) DatumGetPointer(datum))
+			pfree(txt);
+	}
+
+	/* make tsvector2 value */
+	if (prs.curwords)
+	{
+		datum = PointerGetDatum(make_tsvector2(&prs));
+		isnull = false;
+		rettuple = heap_modify_tuple_by_cols(rettuple, rel->rd_att,
+											 1, &tsvector_attr_num,
+											 &datum, &isnull);
+		pfree(DatumGetPointer(datum));
+	}
+	else
+	{
+		TSVector2	out = palloc(tsvector2_calcsize(0, 0));
+
+		SET_VARSIZE(out, tsvector2_calcsize(0, 0));
+		out->size = 0;
+		datum = PointerGetDatum(out);
+		isnull = false;
+		rettuple = heap_modify_tuple_by_cols(rettuple, rel->rd_att,
+											 1, &tsvector_attr_num,
+											 &datum, &isnull);
+		pfree(prs.words);
+	}
+
+	return PointerGetDatum(rettuple);
+}
+
+PG_FUNCTION_INFO_V1(tsvector2_update_trigger_byid);
+Datum
+tsvector2_update_trigger_byid(PG_FUNCTION_ARGS)
+{
+	return tsvector2_update_trigger(fcinfo, false);
+}
+
+PG_FUNCTION_INFO_V1(tsvector2_update_trigger_bycolumn);
+Datum
+tsvector2_update_trigger_bycolumn(PG_FUNCTION_ARGS)
+{
+	return tsvector2_update_trigger(fcinfo, true);
+}

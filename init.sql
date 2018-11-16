@@ -331,6 +331,17 @@ CREATE FUNCTION ts_rank(tsvector2, tsquery)
 	AS 'MODULE_PATHNAME', 'tsvector2_rank_tt'
 	LANGUAGE C STRICT IMMUTABLE;
 
+-- tsvector2_update_trigger
+CREATE FUNCTION tsvector2_update_trigger()
+	RETURNS trigger
+	AS 'MODULE_PATHNAME', 'tsvector2_update_trigger_byid'
+	LANGUAGE C;
+
+CREATE FUNCTION tsvector2_update_trigger_column()
+	RETURNS trigger
+	AS 'MODULE_PATHNAME', 'tsvector2_update_trigger_bycolumn'
+	LANGUAGE C;
+
 -- operator families for various types of indexes
 CREATE OPERATOR FAMILY tsvector2_ops USING btree;
 CREATE OPERATOR FAMILY tsvector2_ops USING gist;

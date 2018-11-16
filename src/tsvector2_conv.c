@@ -10,9 +10,9 @@
 #include "postgres.h"
 
 #include "tsearch/ts_cache.h"
-#include "tsearch/ts_utils.h"
 #include "utils/builtins.h"
 #include "utils/jsonapi.h"
+#include "tsearch/ts_utils.h"
 
 #include "tsvector2.h"
 
@@ -22,7 +22,6 @@ typedef struct TSVectorBuildState
 	Oid			cfgId;
 } TSVectorBuildState;
 
-static TSVector2 make_tsvector2(ParsedText *prs);
 static void add_to_tsvector2(void *_state, char *elem_value, int elem_len);
 
 /*
@@ -363,14 +362,15 @@ add_to_tsvector2(void *_state, char *elem_value, int elem_len)
  *
  * Note: frees prs->words and subsidiary data.
  */
-static TSVector2
-make_tsvector2(ParsedText *prs)
+TSVector2
+make_tsvector2(void *prs1)
 {
 	int			i,
 				lenstr = 0,
 				totallen,
 				stroff = 0;
 	TSVector2	in;
+	ParsedText *prs = (ParsedText *) prs1;
 
 	/* Merge duplicate words */
 	if (prs->curwords > 0)

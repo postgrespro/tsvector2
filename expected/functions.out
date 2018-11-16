@@ -220,4 +220,68 @@ SELECT ts_filter('base hidden rebel spaceship strike'::tsvector2, '{a}');
 
 SELECT ts_filter('base hidden rebel spaceship strike'::tsvector2, '{a,b,NULL}');
 ERROR:  weight array may not contain nulls
+CREATE TABLE t1(a tsvector2, t text);
+CREATE TRIGGER tsvectorupdate
+BEFORE UPDATE OR INSERT ON t1
+FOR EACH ROW EXECUTE PROCEDURE tsvector2_update_trigger(a, 'pg_catalog.english', t);
+SELECT * FROM t1;
+ a | t 
+---+---
+(0 rows)
+
+INSERT INTO t1 (t) VALUES ('345 qwerty');
+SELECT * FROM t1;
+         a          |     t      
+--------------------+------------
+ '345':1 'qwerti':2 | 345 qwerty
+(1 row)
+
+UPDATE t1 SET t = null WHERE t = '345 qwerty';
+SELECT * FROM t1;
+ a | t 
+---+---
+   | 
+(1 row)
+
+INSERT INTO t1 (t) VALUES ('345 qwerty');
+SELECT * FROM t1;
+         a          |     t      
+--------------------+------------
+                    | 
+ '345':1 'qwerti':2 | 345 qwerty
+(2 rows)
+
+DROP TABLE t1 CASCADE;
+CREATE TABLE t2(a tsvector2, t text, c regconfig);
+CREATE TRIGGER tsvectorupdate
+BEFORE UPDATE OR INSERT ON t2
+FOR EACH ROW EXECUTE PROCEDURE tsvector2_update_trigger_column(a, c, t);
+SELECT * FROM t2;
+ a | t | c 
+---+---+---
+(0 rows)
+
+INSERT INTO t2 (t, c) VALUES ('345 qwerty', 'pg_catalog.english');
+SELECT * FROM t2;
+         a          |     t      |    c    
+--------------------+------------+---------
+ '345':1 'qwerti':2 | 345 qwerty | english
+(1 row)
+
+UPDATE t2 SET t = null WHERE t = '345 qwerty';
+SELECT * FROM t2;
+ a | t |    c    
+---+---+---------
+   |   | english
+(1 row)
+
+INSERT INTO t2 (t, c) VALUES ('345 qwerty', 'pg_catalog.english');
+SELECT * FROM t2;
+         a          |     t      |    c    
+--------------------+------------+---------
+                    |            | english
+ '345':1 'qwerti':2 | 345 qwerty | english
+(2 rows)
+
+DROP TABLE t2 CASCADE;
 drop extension tsvector2 cascade;

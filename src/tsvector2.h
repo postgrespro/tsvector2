@@ -161,6 +161,7 @@ extern int tsvector2_getoffset(TSVector2 vec, int idx, WordEntry2 **we);
 extern char *tsvector2_addlexeme(TSVector2 tsv, int idx, int *dataoff,
 	char *lexeme, int lexeme_len, WordEntryPos *pos, int npos);
 extern int32 ts2_compare_string(char *a, int lena, char *b, int lenb, bool prefix);
+extern TSVector2 make_tsvector2(void *prs1);
 
 /* Returns lexeme and its entry by given index from TSVector2 */
 inline static char *
@@ -196,4 +197,5 @@ typedef enum JsonToIndex
 #else
 #define init_tsvector_parser_compat(x,y) init_tsvector_parser(x,y)
 #endif
+
 #endif
