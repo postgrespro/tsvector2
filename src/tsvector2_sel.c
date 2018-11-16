@@ -59,13 +59,14 @@ static int	compare_lexeme_textfreq(const void *e1, const void *e2);
 
 
 /*
- *	tsmatchsel -- Selectivity of "@@"
+ *	tsvector2_matchsel -- Selectivity of "@@"
  *
- * restriction selectivity function for tsvector @@ tsquery and
- * tsquery @@ tsvector
+ * restriction selectivity function for tsvector2 @@ tsquery and
+ * tsquery @@ tsvector2
  */
+PG_FUNCTION_INFO_V1(tsvector2_matchsel);
 Datum
-tsmatchsel(PG_FUNCTION_ARGS)
+tsvector2_matchsel(PG_FUNCTION_ARGS)
 {
 	PlannerInfo *root = (PlannerInfo *) PG_GETARG_POINTER(0);
 
@@ -111,17 +112,10 @@ tsmatchsel(PG_FUNCTION_ARGS)
 	 * check this because the Var might be the TSQuery not the TSVector.
 	 */
 	if (((Const *) other)->consttype == TSQUERYOID)
-	{
-		/* tsvector @@ tsquery or the other way around */
-		Assert(vardata.vartype == TSVECTOROID);
-
 		selec = tsquerysel(&vardata, ((Const *) other)->constvalue);
-	}
 	else
-	{
 		/* If we can't see the query structure, must punt */
 		selec = DEFAULT_TS_MATCH_SEL;
-	}
 
 	ReleaseVariableStats(vardata);
 
@@ -132,12 +126,13 @@ tsmatchsel(PG_FUNCTION_ARGS)
 
 
 /*
- *	tsmatchjoinsel -- join selectivity of "@@"
+ *	tsvector2_matchjoinsel -- join selectivity of "@@"
  *
- * join selectivity function for tsvector @@ tsquery and tsquery @@ tsvector
+ * join selectivity function for tsvector2 @@ tsquery and tsquery @@ tsvector2
  */
+PG_FUNCTION_INFO_V1(tsvector2_matchjoinsel);
 Datum
-tsmatchjoinsel(PG_FUNCTION_ARGS)
+tsvector2_matchjoinsel(PG_FUNCTION_ARGS)
 {
 	/* for the moment we just punt */
 	PG_RETURN_FLOAT8(DEFAULT_TS_MATCH_SEL);
@@ -145,7 +140,7 @@ tsmatchjoinsel(PG_FUNCTION_ARGS)
 
 
 /*
- * @@ selectivity for tsvector var vs tsquery constant
+ * @@ selectivity for tsvector2 var vs tsquery constant
  */
 static Selectivity
 tsquerysel(VariableStatData *vardata, Datum constval)
@@ -167,13 +162,13 @@ tsquerysel(VariableStatData *vardata, Datum constval)
 
 		stats = (Form_pg_statistic) GETSTRUCT(vardata->statsTuple);
 
-		/* MCELEM will be an array of TEXT elements for a tsvector column */
+		/* MCELEM will be an array of TEXT elements for a tsvector2 column */
 		if (get_attstatsslot(&sslot, vardata->statsTuple,
 							 STATISTIC_KIND_MCELEM, InvalidOid,
 							 ATTSTATSSLOT_VALUES | ATTSTATSSLOT_NUMBERS))
 		{
 			/*
-			 * There is a most-common-elements slot for the tsvector Var, so
+			 * There is a most-common-elements slot for the tsvector2 Var, so
 			 * use that.
 			 */
 			selec = mcelem_tsquery_selec(query, sslot.values, sslot.nvalues,
@@ -219,7 +214,7 @@ mcelem_tsquery_selec(TSQuery query, Datum *mcelem, int nmcelem,
 	 *
 	 * (Note: the MCELEM statistics slot definition allows for a third extra
 	 * number containing the frequency of nulls, but we're not expecting that
-	 * to appear for a tsvector column.)
+	 * to appear for a tsvector2 column.)
 	 */
 	if (nnumbers != nmcelem + 2)
 		return tsquery_opr_selec_no_stats(query);
@@ -271,7 +266,7 @@ mcelem_tsquery_selec(TSQuery query, Datum *mcelem, int nmcelem,
  * The MCELEM array is already sorted (see ts_typanalyze.c), so we can use
  * binary search for determining freq[MCELEM].
  *
- * If we don't have stats for the tsvector, we still use this logic,
+ * If we don't have stats for the tsvector2, we still use this logic,
  * except we use default estimates for VAL nodes.  This case is signaled
  * by lookup == NULL.
  */

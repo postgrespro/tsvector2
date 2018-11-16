@@ -83,6 +83,16 @@ CREATE FUNCTION tsquery_match_tsvector2(tsquery, tsvector2)
 	AS 'MODULE_PATHNAME'
 	LANGUAGE C STRICT IMMUTABLE;
 
+CREATE FUNCTION tsvector2_matchsel(internal, oid, internal, int4)
+	RETURNS float8
+	AS 'MODULE_PATHNAME'
+	LANGUAGE C STRICT;
+
+CREATE FUNCTION tsvector2_matchjoinsel(internal, oid, internal, int2, internal)
+	RETURNS float8
+	AS 'MODULE_PATHNAME'
+	LANGUAGE C STRICT;
+
 -- operators
 CREATE OPERATOR < (
 	LEFTARG = tsvector2,
@@ -156,14 +166,18 @@ CREATE OPERATOR @@ (
 	LEFTARG = tsvector2,
 	RIGHTARG = tsquery,
 	PROCEDURE = tsvector2_match_tsquery,
-	COMMUTATOR = '@@'
+	COMMUTATOR = '@@',
+	RESTRICT = tsvector2_matchsel,
+	JOIN = tsvector2_matchjoinsel
 );
 
 CREATE OPERATOR @@ (
 	LEFTARG = tsquery,
 	RIGHTARG = tsvector2,
 	PROCEDURE = tsquery_match_tsvector2,
-	COMMUTATOR = '@@'
+	COMMUTATOR = '@@',
+	RESTRICT = tsvector2_matchsel,
+	JOIN = tsvector2_matchjoinsel
 );
 
 -- tsvector2 functions
