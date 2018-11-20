@@ -23,11 +23,6 @@ CREATE FUNCTION tsvector2send(tsvector2)
 	AS 'MODULE_PATHNAME'
 	LANGUAGE C STRICT IMMUTABLE;
 
-CREATE FUNCTION tsvector2_concat(tsvector2, tsvector2)
-	RETURNS tsvector2
-	AS 'MODULE_PATHNAME'
-	LANGUAGE C STRICT IMMUTABLE;
-
 CREATE TYPE tsvector2 (
 	INPUT = tsvector2in,
 	OUTPUT = tsvector2out,
@@ -38,6 +33,11 @@ CREATE TYPE tsvector2 (
 );
 
 -- functions
+CREATE FUNCTION tsvector2_concat(tsvector2, tsvector2)
+	RETURNS tsvector2
+	AS 'MODULE_PATHNAME'
+	LANGUAGE C STRICT IMMUTABLE;
+
 CREATE FUNCTION tsvector2_lt(tsvector2, tsvector2)
 	RETURNS bool
 	AS 'MODULE_PATHNAME'
@@ -385,7 +385,7 @@ CREATE OPERATOR CLASS gin_tsvector2_ops DEFAULT
 	FUNCTION 3  gin_extract_tsquery(tsquery,internal,int2,internal,internal,internal,internal),
 	FUNCTION 4  gin_tsquery_consistent(internal,int2,tsquery,int4,internal,internal,internal,internal),
 	FUNCTION 5  gin_cmp_prefix(text,text,int2,internal),
-	FUNCTION 6  gin_tsquery_triconsistent;
+	FUNCTION 6  gin_tsquery_triconsistent(internal,int2,tsvector,int4,internal,internal,internal);
 
 -- gist support
 CREATE FUNCTION gist_tsvector2_compress(internal,tsquery,int2,oid,internal)
@@ -398,9 +398,9 @@ CREATE OPERATOR CLASS gist_tsvector2_ops DEFAULT
 	FOR TYPE tsvector2 USING gist FAMILY tsvector2_ops AS
 	OPERATOR 1  @@ (tsvector2, tsquery),
 	FUNCTION 1  gtsvector_consistent(internal,tsvector,int2,oid,internal),
-	FUNCTION 2  gtsvector_union,
-	FUNCTION 3  gist_tsvector2_compress,
-	FUNCTION 4  gtsvector_decompress,
-	FUNCTION 5  gtsvector_penalty,
-	FUNCTION 6  gtsvector_picksplit,
-	FUNCTION 7  gtsvector_same;
+	FUNCTION 2  gtsvector_union(internal,internal),
+	FUNCTION 3  gist_tsvector2_compress(internal,tsquery,int2,oid,internal),
+	FUNCTION 4  gtsvector_decompress(internal),
+	FUNCTION 5  gtsvector_penalty(internal,internal,internal),
+	FUNCTION 6  gtsvector_picksplit(internal,internal),
+	FUNCTION 7  gtsvector_same(gtsvector,gtsvector,internal);

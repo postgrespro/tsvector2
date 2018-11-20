@@ -11,6 +11,7 @@
 
 #include "tsearch/ts_cache.h"
 #include "utils/builtins.h"
+#include "utils/jsonb.h"
 #include "utils/jsonapi.h"
 #include "tsearch/ts_utils.h"
 
@@ -22,7 +23,62 @@ typedef struct TSVectorBuildState
 	Oid			cfgId;
 } TSVectorBuildState;
 
+typedef void (*action_function) (void *state, char *elem_value, int elem_len);
 static void add_to_tsvector2(void *_state, char *elem_value, int elem_len);
+
+#ifdef __GNUC__
+__attribute__((unused))
+#endif
+static void
+collect_jsonb_strings(Jsonb *jb, void *state, action_function action)
+{
+	JsonbIterator *it;
+	JsonbValue	v;
+	JsonbIteratorToken type;
+
+	it = JsonbIteratorInit(&jb->root);
+
+	while ((type = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
+	{
+		if ((type == WJB_VALUE || type == WJB_ELEM) && v.type == jbvString)
+		{
+			action(state, v.val.string.val, v.val.string.len);
+		}
+	}
+}
+
+struct parseState {
+	action_function action;
+	void *action_state;
+};
+
+static void
+iterate_string_values_scalar(void *state, char *token, JsonTokenType tokentype)
+{
+	struct parseState *pstate = (struct parseState *) state;
+
+	if (tokentype == JSON_TOKEN_STRING)
+		(pstate->action) (pstate->action_state, token, strlen(token));
+}
+
+#ifdef __GNUC__
+__attribute__((unused))
+#endif
+static void
+collect_json_strings(text *json, void *action_state, action_function action)
+{
+	JsonLexContext *lex = makeJsonLexContext(json, true);
+	JsonSemAction *sem = palloc0(sizeof(JsonSemAction));
+	struct parseState *state = palloc0(sizeof(struct parseState));
+
+	state->action = action;
+	state->action_state = action_state;
+
+	sem->semstate = (void *) state;
+	sem->scalar = iterate_string_values_scalar;
+
+	pg_parse_json(lex, sem);
+}
 
 /*
  * Worker function for jsonb(_string)_to_tsvector2(_byid)
@@ -41,7 +97,7 @@ jsonb_to_tsvector2_worker(Oid cfgId, Jsonb *jb, uint32 flags)
 #if PG_VERSION_NUM >= 110000
 	iterate_jsonb_values(jb, flags, &state, add_to_tsvector2);
 #else
-	iterate_jsonb_string_values(jb, &state, add_to_tsvector2);
+	collect_jsonb_strings(jb, &state, add_to_tsvector2);
 #endif
 
 	return make_tsvector2(&prs);
@@ -136,7 +192,7 @@ json_to_tsvector2_worker(Oid cfgId, text *json, uint32 flags)
 #if PG_VERSION_NUM >= 110000
 	iterate_json_values(json, flags, &state, add_to_tsvector2);
 #else
-	iterate_json_string_values(json, &state, add_to_tsvector2);
+	collect_json_strings(json, &state, add_to_tsvector2);
 #endif
 
 	return make_tsvector2(&prs);

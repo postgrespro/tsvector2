@@ -23,7 +23,9 @@
 #include "parser/parse_coerce.h"
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
+#if PG_VERSION_NUM >= 100000
 #include "utils/regproc.h"
+#endif
 #include "utils/rel.h"
 #include "tsearch/ts_utils.h"
 
@@ -2687,6 +2689,7 @@ tsvector2_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 			pfree(txt);
 	}
 
+#if PG_VERSION_NUM >= 100000
 	/* make tsvector2 value */
 	if (prs.curwords)
 	{
@@ -2710,6 +2713,31 @@ tsvector2_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 											 &datum, &isnull);
 		pfree(prs.words);
 	}
+#else
+	/* make tsvector2 value */
+	if (prs.curwords)
+	{
+		datum = PointerGetDatum(make_tsvector2(&prs));
+		rettuple = SPI_modifytuple(rel, rettuple, 1, &tsvector_attr_num,
+								   &datum, NULL);
+		pfree(DatumGetPointer(datum));
+	}
+	else
+	{
+		TSVector2	out = palloc(CALCDATASIZE(0, 0));
+
+		SET_VARSIZE(out, tsvector2_calcsize(0, 0));
+		out->size = 0;
+		datum = PointerGetDatum(out);
+		rettuple = SPI_modifytuple(rel, rettuple, 1, &tsvector_attr_num,
+								   &datum, NULL);
+		pfree(prs.words);
+	}
+
+	if (rettuple == NULL)		/* internal error */
+		elog(ERROR, "tsvector_update_trigger: %d returned by SPI_modifytuple",
+			 SPI_result);
+#endif
 
 	return PointerGetDatum(rettuple);
 }

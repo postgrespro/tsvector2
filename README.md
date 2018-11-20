@@ -1,7 +1,7 @@
 tsvector2
 ==========
 
-Extended `tsvector` type for PostgreSQL 10+. It was implemented to provide better
+Extended `tsvector` type for PostgreSQL 9.6+. It was implemented to provide better
 compression and to remove 1MB size limitation of original tsvector type.
 
 It could be used as transparent replacement of original tsvector and supports
@@ -38,3 +38,9 @@ Common functions that could be safely used on both types
 * `ts_rank_cd`
 * `ts_delete`
 * `ts_filter`
+
+Installation
+-------------
+
+	make install PG_CONFIG=<path_to_pg_config>
+	psql <database> -c "create extension tsvector2"

@@ -138,7 +138,7 @@ tsvector2_matchjoinsel(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8(DEFAULT_TS_MATCH_SEL);
 }
 
-
+#if PG_VERSION_NUM >= 100000
 /*
  * @@ selectivity for tsvector2 var vs tsquery constant
  */
@@ -195,6 +195,70 @@ tsquerysel(VariableStatData *vardata, Datum constval)
 
 	return selec;
 }
+#else
+/*
+ * @@ selectivity for tsvector var vs tsquery constant
+ */
+static Selectivity
+tsquerysel(VariableStatData *vardata, Datum constval)
+{
+	Selectivity selec;
+	TSQuery		query;
+
+	/* The caller made sure the const is a TSQuery, so get it now */
+	query = DatumGetTSQuery(constval);
+
+	/* Empty query matches nothing */
+	if (query->size == 0)
+		return (Selectivity) 0.0;
+
+	if (HeapTupleIsValid(vardata->statsTuple))
+	{
+		Form_pg_statistic stats;
+		Datum	   *values;
+		int			nvalues;
+		float4	   *numbers;
+		int			nnumbers;
+
+		stats = (Form_pg_statistic) GETSTRUCT(vardata->statsTuple);
+
+		/* MCELEM will be an array of TEXT elements for a tsvector column */
+		if (get_attstatsslot(vardata->statsTuple,
+							 TEXTOID, -1,
+							 STATISTIC_KIND_MCELEM, InvalidOid,
+							 NULL,
+							 &values, &nvalues,
+							 &numbers, &nnumbers))
+		{
+			/*
+			 * There is a most-common-elements slot for the tsvector Var, so
+			 * use that.
+			 */
+			selec = mcelem_tsquery_selec(query, values, nvalues,
+										 numbers, nnumbers);
+			free_attstatsslot(TEXTOID, values, nvalues, numbers, nnumbers);
+		}
+		else
+		{
+			/* No most-common-elements info, so do without */
+			selec = tsquery_opr_selec_no_stats(query);
+		}
+
+		/*
+		 * MCE stats count only non-null rows, so adjust for null rows.
+		 */
+		selec *= (1.0 - stats->stanullfrac);
+	}
+	else
+	{
+		/* No stats at all, so do without */
+		selec = tsquery_opr_selec_no_stats(query);
+		/* we assume no nulls here, so no stanullfrac correction */
+	}
+
+	return selec;
+}
+#endif
 
 /*
  * Extract data from the pg_statistic arrays into useful format.
