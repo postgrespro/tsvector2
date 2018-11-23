@@ -1746,6 +1746,12 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 	if (curitem->type == QI_VAL)
 		return chkcond(arg, (QueryOperand *) curitem, data);
 
+	if (!data)
+	{
+		/* keep clang checker quiet */
+		return false;
+	}
+
 	switch (curitem->qoperator.oper)
 	{
 		case OP_NOT:
@@ -1908,8 +1914,7 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 			maxwidth = Max(Ldata.width, Rdata.width);
 			Loffset = maxwidth - Ldata.width;
 			Roffset = maxwidth - Rdata.width;
-			if (data)
-				data->width = maxwidth;
+			data->width = maxwidth;
 
 			if (Ldata.negate && Rdata.negate)
 			{
@@ -1928,8 +1933,7 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 										TSPO_L_ONLY,
 										Loffset, Roffset,
 										Ldata.npos);
-				if (data)
-					data->negate = true;
+				data->negate = true;
 				return true;
 			}
 			else if (Rdata.negate)
@@ -1939,8 +1943,7 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 										TSPO_R_ONLY,
 										Loffset, Roffset,
 										Rdata.npos);
-				if (data)
-					data->negate = true;
+				data->negate = true;
 				return true;
 			}
 			else
