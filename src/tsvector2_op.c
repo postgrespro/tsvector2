@@ -1390,13 +1390,16 @@ checkclass_str(WordEntryPos *pv, int npos, QueryOperand *val,
 				posvec_iter++;
 			}
 		}
-		else					/* data != NULL */
+		else if (data)	/* data != NULL */
 		{
 			data->npos = npos;
 			data->pos = pv;
 			data->allocated = false;
 			result = true;
 		}
+		else
+			/* should not happen */
+			elog(ERROR, "invalid parameters");
 	}
 	else
 	{
@@ -2244,8 +2247,7 @@ ts_accum(MemoryContext persistentContext, TSVectorStat *stat, Datum data)
 	TSVector2	txt = DatumGetTSVector2(data);
 	uint32		i,
 				nbit = 0,
-				offset,
-				count = txt->size;
+				offset;
 
 	if (stat == NULL)
 	{							/* Init in first */
@@ -2253,20 +2255,24 @@ ts_accum(MemoryContext persistentContext, TSVectorStat *stat, Datum data)
 		stat->maxdepth = 1;
 	}
 
+	if (txt == NULL)
+		return stat;
+
 	/* simple check of correctness */
-	if (txt == NULL || count == 0)
+	if (txt->size == 0)
 	{
-		if (txt && txt != (TSVector2) DatumGetPointer(data))
+		if (txt != (TSVector2) DatumGetPointer(data))
 			pfree(txt);
+
 		return stat;
 	}
 
-	i = count - 1;
+	i = txt->size - 1;
 	for (; i > 0; i >>= 1)
 		nbit++;
 
 	nbit = 1 << nbit;
-	offset = (nbit - count) / 2;
+	offset = (nbit - txt->size) / 2;
 
 	insertStatEntry(persistentContext, stat, txt, (nbit >> 1) - offset);
 	chooseNextStatEntry(persistentContext, stat, txt, 0, nbit, offset);
