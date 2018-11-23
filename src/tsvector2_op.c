@@ -1538,8 +1538,11 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 						}
 					}
 
-					memcpy(allpos + npos, data->pos, sizeof(WordEntryPos) * data->npos);
-					npos += data->npos;
+					if (allpos)
+					{
+						memcpy(allpos + npos, data->pos, sizeof(WordEntryPos) * data->npos);
+						npos += data->npos;
+					}
 				}
 			}
 			else
@@ -1905,7 +1908,8 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 			maxwidth = Max(Ldata.width, Rdata.width);
 			Loffset = maxwidth - Ldata.width;
 			Roffset = maxwidth - Rdata.width;
-			data->width = maxwidth;
+			if (data)
+				data->width = maxwidth;
 
 			if (Ldata.negate && Rdata.negate)
 			{
@@ -1924,7 +1928,8 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 										TSPO_L_ONLY,
 										Loffset, Roffset,
 										Ldata.npos);
-				data->negate = true;
+				if (data)
+					data->negate = true;
 				return true;
 			}
 			else if (Rdata.negate)
@@ -1934,7 +1939,8 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 										TSPO_R_ONLY,
 										Loffset, Roffset,
 										Rdata.npos);
-				data->negate = true;
+				if (data)
+					data->negate = true;
 				return true;
 			}
 			else
