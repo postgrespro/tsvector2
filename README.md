@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/postgrespro/tsvector2.svg?branch=master)](https://travis-ci.org/postgrespro/tsvector2)
+[![GitHub license](https://img.shields.io/badge/license-PostgreSQL-blue.svg)](https://raw.githubusercontent.com/postgrespro/tsvector2/master/LICENSE)
+
 tsvector2
 ==========
 
