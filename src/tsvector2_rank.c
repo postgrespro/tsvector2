@@ -19,20 +19,11 @@
 #include "miscadmin.h"
 
 #include "tsvector2.h"
-
+#include "tsvector2_utils.h"
 
 static const float weights[] = {0.1f, 0.2f, 0.4f, 1.0f};
 
 #define wpos(wep)	( w[ WEP_GETWEIGHT(wep) ] )
-
-#define RANK_NO_NORM			0x00
-#define RANK_NORM_LOGLENGTH		0x01
-#define RANK_NORM_LENGTH		0x02
-#define RANK_NORM_EXTDIST		0x04
-#define RANK_NORM_UNIQ			0x08
-#define RANK_NORM_LOGUNIQ		0x10
-#define RANK_NORM_RDIVRPLUS1	0x20
-#define DEF_NORM_METHOD			RANK_NO_NORM
 
 static float calc_rank_or(const float *w, TSVector2 t, TSQuery q);
 static float calc_rank_and(const float *w, TSVector2 t, TSQuery q);
@@ -49,8 +40,8 @@ word_distance(int32 w)
 	return 1.0 / (1.005 + 0.05 * exp(((float4) w) / 1.5 - 2));
 }
 
-static int
-cnt_length(TSVector2 t)
+int
+count_length(TSVector2 t)
 {
 	int			i,
 				len = 0;
@@ -72,7 +63,7 @@ cnt_length(TSVector2 t)
  * tsvector 't'. 'q' is the TSQuery containing 'item'.
  * Returns NULL if not found.
  */
-static int
+int
 find_wordentry(TSVector2 t, TSQuery q, QueryOperand *item, int32 *nitem)
 {
 #define WordECompareQueryItem(s,l,q,i,m) \
@@ -387,11 +378,11 @@ calc_rank(const float *w, TSVector2 t, TSQuery q, int32 method)
 		res = 1e-20f;
 
 	if ((method & RANK_NORM_LOGLENGTH) && t->size > 0)
-		res /= log((double) (cnt_length(t) + 1)) / log(2.0);
+		res /= log((double) (count_length(t) + 1)) / log(2.0);
 
 	if (method & RANK_NORM_LENGTH)
 	{
-		len = cnt_length(t);
+		len = count_length(t);
 		if (len > 0)
 			res /= (float) len;
 	}
@@ -940,11 +931,11 @@ calc_rank_cd(const float4 *arrdata, TSVector2 txt, TSQuery query, int method)
 	}
 
 	if ((method & RANK_NORM_LOGLENGTH) && txt->size > 0)
-		Wdoc /= log((double) (cnt_length(txt) + 1));
+		Wdoc /= log((double) (count_length(txt) + 1));
 
 	if (method & RANK_NORM_LENGTH)
 	{
-		len = cnt_length(txt);
+		len = count_length(txt);
 		if (len > 0)
 			Wdoc /= (double) len;
 	}
