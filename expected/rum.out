@@ -19,11 +19,98 @@ SELECT
 
 -- Fill the table with data
 \copy test_rum(t) from 'data/rum.data';
+SELECT * FROM test_rum;
+                                    t                                     |                                                    a                                                     
+--------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------
+ As a reward for your reformation I write to you on this precious sheet.  | 'precious':13 'reform':6 'reward':3 'sheet':14 'write':8
+ You see I have come to be wonderfully attached to Heidelberg, the        | 'attach':9 'come':5 'heidelberg':11 'see':2 'wonder':8
+ beautiful, the quaint, the historically poetic, learned and picturesque  | 'beauti':1 'histor':5 'learn':7 'picturesqu':9 'poetic':6 'quaint':3
+ old town on the Neckar. It seems like another home. So I could not show  | 'anoth':9 'could':13 'home':10 'like':8 'neckar':5 'old':1 'seem':7 'show':15 'town':2
+ my appreciation of you in a more complimentary way than by sending this  | 'appreci':2 'complimentari':8 'send':12 'way':9
+ little series of pictures. Have you ever been here, I wonder? You did    | 'ever':7 'littl':1 'pictur':4 'seri':2 'wonder':11
+ not say, but you wrote as if you knew it by sight as well as by heart.   | 'heart':17 'knew':9 'say':2 'sight':12 'well':14 'wrote':5
+ As I cannot know, I will venture an explanation. The panorama speaks for | 'cannot':3 'explan':9 'know':4 'panorama':11 'speak':12 'ventur':7
+ itself. Put on your "specs" and look at the castle, half way up the      | 'castl':10 'half':11 'look':7 'put':2 'spec':5 'way':12
+ _berg_, "the Jettenhuhl, a wooded spur of the Konigestuhl." Look at it   | 'berg':1 'jettenhuhl':3 'konigestuhl':9 'look':10 'spur':6 'wood':5
+ from the "Terrasse." Thus you'll get something of an idea of it. The     | 'get':7 'idea':11 'll':6 'someth':8 'terrass':3 'thus':4
+ Gesprente Thurm is the one that was blown up by the French. The          | 'blown':8 'french':12 'gesprent':1 'one':5 'thurm':2
+ thickness of the walls, twenty-one feet, and the solid masonry, held it  | 'feet':8 'held':13 'masonri':12 'one':7 'solid':11 'thick':1 'twenti':6 'twenty-on':5 'wall':4
+ so well that only a fragment, as it were, gave way. It still hangs as if | 'fragment':6 'gave':10 'hang':14 'still':13 'way':11 'well':2
+ ready to be replaced. "Das Grosse Fass Gebaude," too, you will have no   | 'das':5 'fass':7 'gebaud':8 'gross':6 'readi':1 'replac':4
+ difficulty in making out. If you only had it with its 49,000 gallons of  | '000':13 '49':12 'difficulti':1 'gallon':14 'make':3
+ wine, but wouldn't you divide with your neighbors! The columns in the    | 'column':11 'divid':6 'neighbor':9 'wine':1 'wouldn':3
+ portico that shows in the Schlosshof are the four brought from           | 'brought':10 'four':9 'portico':1 'schlosshof':6 'show':3
+ Charlemagne's palace at Ingelheim by the Count Palatine Ludwig, some     | 'charlemagn':1 'count':8 'ingelheim':5 'ludwig':10 'palac':3 'palatin':9
+ time between 1508-44. The Zum Ritter has nothing to do with the castle,  | '-44':4 '1508':3 'castl':14 'noth':9 'ritter':7 'time':1 'zum':6
+ but is an ancient structure (1592) in the Renaissance style, and one of  | '1592':6 'ancient':4 'one':12 'renaiss':9 'structur':5 'style':10
+ the few that escaped destruction in 1693. It is a beautiful, highly      | '1693':7 'beauti':11 'destruct':5 'escap':4 'high':12
+ ornamental building, and I wish you could see it, if you have not seen   | 'build':2 'could':7 'ornament':1 'see':8 'seen':14 'wish':5
+ it.                                                                      | 
+                                                                          | 
+ All the above information, I beg you to believe, I do not intend you     | 'beg':6 'believ':9 'inform':4 'intend':13
+ to think was evolved from my inner consciousness, but gathered from      | 'conscious':8 'evolv':4 'gather':10 'inner':7 'think':2
+ the--nearest guide-book!                                                 | 'book':5 'guid':4 'guide-book':3 'nearest':2
+                                                                          | 
+ I am so much obliged to you for mapping out Switzerland to me. I have    | 'map':9 'much':4 'oblig':5 'switzerland':11
+ been trying my best to get all those "passes" into my brain. Now, thanks | 'best':4 'brain':12 'get':6 'pass':9 'thank':14 'tri':2
+ to your letter, I have them all in the handiest kind of a bunch. Ariel   | 'ariel':15 'bunch':14 'handiest':10 'kind':11 'letter':3
+ like, "I'll do my bidding gently," and as surely, if I get there. But    | 'bid':6 'gentl':7 'get':13 'like':1 'll':3 'sure':10
+ there are dreadful reports of floods and roads caved in and bridges      | 'bridg':12 'cave':9 'dread':3 'flood':6 'report':4 'road':8
+ swept away and snows and--enough of such exciting items as sets one      | 'away':2 'enough':6 'excit':9 'item':10 'one':13 'set':12 'snow':4 'swept':1
+ thinking--"to go or not to go?" We are this far on the way. Reached      | 'far':11 'go':3,7 'reach':15 'think':1 'way':14
+ here this afternoon. Have spent the evening sauntering in the gardens,   | 'afternoon':3 'even':7 'garden':11 'saunter':8 'spent':5
+ the Conversationhaus, the bazaar, mingling with the throng, listening to | 'bazaar':4 'conversationhaus':2 'listen':9 'mingl':5 'throng':8
+ the band, and comparing what it is with what it was. It was a gay and    | 'band':2 'compar':4 'gay':15
+ curious spectacle, but on the whole had "the banquet-hall deserted"      | 'banquet':10 'banquet-hal':9 'curious':1 'desert':12 'hall':11 'spectacl':2 'whole':6
+ look. The situation is most beautiful. It lies, you know, at the         | 'beauti':6 'know':10 'lie':8 'look':1 'situat':3
+ entrance of the Black Forest, among picturesque, thickly-wooded hills,   | 'among':6 'black':4 'entranc':1 'forest':5 'hill':11 'picturesqu':7 'thick':9 'thickly-wood':8 'wood':10
+ in the valley of the Oos, and extends up the slope of some of the hills. | 'extend':8 'hill':16 'oo':6 'slope':11 'valley':3
+ The Oos is a most turbid, turbulent stream; dashes through part of the   | 'dash':9 'oo':2 'part':11 'stream':8 'turbid':6 'turbul':7
+ town with angry, headlong speed. There is an avenue along its bank of    | 'along':10 'angri':3 'avenu':9 'bank':12 'headlong':4 'speed':5 'town':1
+ oaks, limes and maples, bordered with flower-beds and shrubberies, and   | 'bed':9 'border':5 'flower':8 'flower-b':7 'lime':2 'mapl':4 'oak':1 'shrubberi':11
+ adorned with fountains and handsome villas. We shall devote to-morrow to | 'adorn':1 'devot':9 'fountain':3 'handsom':5 'morrow':12 'shall':8 'to-morrow':10 'villa':6
+ seeing all there is to be seen, and go to Strassburg to-morrow evening   | 'even':15 'go':9 'morrow':14 'see':1 'seen':7 'strassburg':11 'to-morrow':12
+ for two or three days. From there to Constance, and then hold _our_      | 'constanc':9 'day':5 'hold':12 'three':4 'two':2
+ "Council" as to further movements.                                       | 'council':1 'movement':5
+ def fgr                                                                  | 'def':1 'fgr':2
+ def xxx fgr                                                              | 'def':1 'fgr':3 'xxx':2
+(52 rows)
+
 CREATE INDEX failed_rumidx ON test_rum USING rum (a rum_tsvector2_addon_ops);
 ERROR:  additional information attribute "a" is not found in index
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');
+ count 
+-------
+     2
+(1 row)
+
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');
+                       QUERY PLAN                       
+--------------------------------------------------------
+ Aggregate
+   ->  Seq Scan on test_rum
+         Filter: (a @@ '''ever'' | ''wrote'''::tsquery)
+(3 rows)
+
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', '(gave | half) <-> way');
+ count 
+-------
+     2
+(1 row)
+
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', '(gave | half) <-> way');
+                                QUERY PLAN                                 
+---------------------------------------------------------------------------
+ Aggregate
+   ->  Index Scan using rumidx on test_rum
+         Index Cond: (a @@ '( ''gave'' | ''half'' ) <-> ''way'''::tsquery)
+(3 rows)
+
 SET enable_seqscan=off;
 SET enable_indexscan=off;
-explain (costs off)
+EXPLAIN (COSTS OFF)
 SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');
                             QUERY PLAN                            
 ------------------------------------------------------------------
@@ -34,9 +121,9 @@ SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|
                Index Cond: (a @@ '''ever'' | ''wrote'''::tsquery)
 (5 rows)
 
-explain (costs off)
+EXPLAIN (COSTS OFF)
 SELECT * FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote')
-ORDER BY a <=> to_tsquery('pg_catalog.english', 'ever|wrote');
+	ORDER BY a <=> to_tsquery('pg_catalog.english', 'ever|wrote');
                             QUERY PLAN                            
 ------------------------------------------------------------------
  Sort
@@ -47,9 +134,8 @@ ORDER BY a <=> to_tsquery('pg_catalog.english', 'ever|wrote');
                Index Cond: (a @@ '''ever'' | ''wrote'''::tsquery)
 (6 rows)
 
-explain (costs off)
-SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english',
-													'def <-> fgr');
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'def <-> fgr');
                            QUERY PLAN                            
 -----------------------------------------------------------------
  Aggregate
@@ -119,15 +205,13 @@ SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', '!gave
      1
 (1 row)
 
-SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english',
-													'def <-> fgr');
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'def <-> fgr');
  count 
 -------
      1
 (1 row)
 
-SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english',
-													'def <2> fgr');
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'def <2> fgr');
  count 
 -------
      1

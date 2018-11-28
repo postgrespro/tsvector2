@@ -24,17 +24,26 @@ SELECT * FROM test_rum;
 
 CREATE INDEX failed_rumidx ON test_rum USING rum (a rum_tsvector2_addon_ops);
 
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');
+
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', '(gave | half) <-> way');
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', '(gave | half) <-> way');
+
 SET enable_seqscan=off;
 SET enable_indexscan=off;
 
-explain (costs off)
+EXPLAIN (COSTS OFF)
 SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');
-explain (costs off)
+
+EXPLAIN (COSTS OFF)
 SELECT * FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote')
-ORDER BY a <=> to_tsquery('pg_catalog.english', 'ever|wrote');
-explain (costs off)
-SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english',
-													'def <-> fgr');
+	ORDER BY a <=> to_tsquery('pg_catalog.english', 'ever|wrote');
+
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'def <-> fgr');
 
 SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');
 SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'have&wish');
