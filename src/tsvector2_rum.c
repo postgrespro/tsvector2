@@ -214,8 +214,8 @@ rum_extract_tsvector2_internal(TSVector2	vector,
 				posDataSize = VARHDRSZ + 2 * npos * sizeof(WordEntryPos);
 				posData = (bytea *) palloc(posDataSize);
 
-				posDataSize = compress_pos(posData->vl_dat, positions, npos) + VARHDRSZ;
-				SET_VARSIZE(posData, posDataSize);
+				posDataSize = compress_pos(posData->vl_dat, positions, npos);
+				SET_VARSIZE(posData, posDataSize + VARHDRSZ);
 
 				(*addInfo)[i] = PointerGetDatum(posData);
 				(*addInfoIsNull)[i] = false;

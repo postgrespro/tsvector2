@@ -24,6 +24,11 @@ SELECT * FROM test_rum;
 
 CREATE INDEX failed_rumidx ON test_rum USING rum (a rum_tsvector2_addon_ops);
 
+SET enable_seqscan=on;
+SET enable_indexscan=off;
+SET enable_indexonlyscan=off;
+SET enable_bitmapscan=off;
+
 SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');
@@ -34,6 +39,8 @@ SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', '(gave
 
 SET enable_seqscan=off;
 SET enable_indexscan=off;
+RESET enable_indexonlyscan;
+RESET enable_bitmapscan;
 
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');

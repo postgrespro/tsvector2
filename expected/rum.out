@@ -78,6 +78,10 @@ SELECT * FROM test_rum;
 
 CREATE INDEX failed_rumidx ON test_rum USING rum (a rum_tsvector2_addon_ops);
 ERROR:  additional information attribute "a" is not found in index
+SET enable_seqscan=on;
+SET enable_indexscan=off;
+SET enable_indexonlyscan=off;
+SET enable_bitmapscan=off;
 SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');
  count 
 -------
@@ -101,15 +105,17 @@ SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', '(gave
 
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', '(gave | half) <-> way');
-                                QUERY PLAN                                 
----------------------------------------------------------------------------
+                              QUERY PLAN                               
+-----------------------------------------------------------------------
  Aggregate
-   ->  Index Scan using rumidx on test_rum
-         Index Cond: (a @@ '( ''gave'' | ''half'' ) <-> ''way'''::tsquery)
+   ->  Seq Scan on test_rum
+         Filter: (a @@ '( ''gave'' | ''half'' ) <-> ''way'''::tsquery)
 (3 rows)
 
 SET enable_seqscan=off;
 SET enable_indexscan=off;
+RESET enable_indexonlyscan;
+RESET enable_bitmapscan;
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM test_rum WHERE a @@ to_tsquery('pg_catalog.english', 'ever|wrote');
                             QUERY PLAN                            
