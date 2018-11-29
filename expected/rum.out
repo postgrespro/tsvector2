@@ -478,3 +478,9 @@ SELECT  'stroustrup:5508B,6233B,6238B bjarn:6235B,6237B'::tsvector2 <=> 'bjarn <
   2.05617
 (1 row)
 
+DROP TABLE tst CASCADE;
+DROP TABLE test_rum CASCADE;
+DROP EXTENSION tsvector CASCADE;
+ERROR:  extension "tsvector" does not exist
+DROP EXTENSION rum CASCADE;
+NOTICE:  drop cascades to extension tsvector2

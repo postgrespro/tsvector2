@@ -183,6 +183,8 @@ rum_extract_tsvector2_internal(TSVector2	vector,
 	Datum	   *entries = NULL;
 
 	*nentries = vector->size;
+
+	AssertPointerAlignment(vector, sizeof(void *));
 	if (vector->size > 0)
 	{
 		uint32		pos;
@@ -196,16 +198,17 @@ rum_extract_tsvector2_internal(TSVector2	vector,
 		INITPOS(pos);
 		for (i = 0; i < vector->size; i++)
 		{
-			int				npos = ENTRY_NPOS(vector, we);
+			int				npos = ENTRY_NPOS(vector, we),
+							len = ENTRY_LEN(vector, we);
 			char		   *lexeme = tsvector2_storage(vector) + pos;
 
 			/* Extract entry using specified method */
-			entries[i] = build_tsvector2_entry(lexeme, ENTRY_LEN(vector, we));
+			entries[i] = build_tsvector2_entry(lexeme, len);
 			if (npos > 0)
 			{
 				int				posDataSize;
 				bytea		   *posData;
-				WordEntryPos   *positions = get_lexeme_positions(lexeme, pos);
+				WordEntryPos   *positions = get_lexeme_positions(lexeme, len);
 
 				/*
 				 * In some cases compressed positions may take more memory than

@@ -319,9 +319,7 @@ SELECT a <=> to_tsquery('pg_catalog.english', 'w:*'), *
 	WHERE a @@ to_tsquery('pg_catalog.english', 'w:*')
 	ORDER BY a <=> to_tsquery('pg_catalog.english', 'w:*');
 ERROR:  Compare with prefix expressions isn't supported
+DROP TABLE tst_hash CASCADE;
+DROP TABLE test_rum_hash CASCADE;
 DROP EXTENSION tsvector2 CASCADE;
-NOTICE:  drop cascades to 3 other objects
-DETAIL:  drop cascades to column a of table test_rum_hash
-drop cascades to column t of table tst_hash
-drop cascades to trigger tsvector2update on table test_rum_hash
 DROP EXTENSION rum CASCADE;
