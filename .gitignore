@@ -5,3 +5,4 @@
 tsvector2--1.0.sql
 .log
 regression.*
+Dockerfile
