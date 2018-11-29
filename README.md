@@ -46,4 +46,6 @@ Installation
 -------------
 
 	make install PG_CONFIG=<path_to_pg_config>
+	# if you need rum support, install it first:
+	# psql <database> -c "create extension rum"
 	psql <database> -c "create extension tsvector2"
