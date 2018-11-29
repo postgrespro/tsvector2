@@ -11,14 +11,15 @@ RUN if [ "${CHECK_CODE}" = "cppcheck" ] ; then \
 	fi
 
 RUN if [ "${CHECK_CODE}" = "false" ] ; then \
-	apk --no-cache add curl gcc make musl-dev icu-dev;\
+	apk --no-cache add git curl gcc make musl-dev icu-dev;\
 	fi
 
 RUN mkdir -p /pg/data && \
 	mkdir /pg/src && \
 	chown postgres:postgres ${PGDATA} && \
 	chmod a+rwx /usr/local/lib/postgresql && \
-	chmod a+rwx /usr/local/share/postgresql/extension
+	chmod a+rwx /usr/local/share/postgresql/extension && \
+	chmod a+rwx /usr/local/include/postgresql/server
 
 ADD . /pg/src
 WORKDIR /pg/src

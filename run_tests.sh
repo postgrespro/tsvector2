@@ -42,6 +42,13 @@ initdb
 # build extension
 make USE_PGXS=1 install
 
+# build rum
+git clone https://github.com/postgrespro/rum.git
+pushd rum
+printf 'installincludes:\n\techo "includes are skipped"' >> Makefile
+make USE_PGXS=1 install
+popd
+
 # check build
 status=$?
 if [ $status -ne 0 ]; then exit $status; fi
