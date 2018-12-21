@@ -1,5 +1,5 @@
 {
-   "name": "pg_pathman",
+   "name": "tsvector2",
    "abstract": "Improved tsvector type for PostgreSQL",
    "description": "tsvector2 provides alternative to tsvector type with better compression and without 1MB limitation of original type",
    "version": "1.0.0",
