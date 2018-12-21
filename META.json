@@ -1,0 +1,40 @@
+{
+   "name": "pg_pathman",
+   "abstract": "Improved tsvector type for PostgreSQL",
+   "description": "tsvector2 provides alternative to tsvector type with better compression and without 1MB limitation of original type",
+   "version": "1.0",
+   "maintainer": [
+      "Ildus Kurbangaliev <i.kurbangaliev@gmail.com>"
+   ],
+   "license": "postgresql",
+   "resources": {
+      "bugtracker": {
+         "web": "https://github.com/postgrespro/tsvector2/issues"
+      },
+      "repository": {
+        "url":  "https://github.com/postgrespro/tsvector2.git",
+        "web":  "https://github.com/postgrespro/tsvector2",
+        "type": "git"
+      }
+   },
+   "generated_by": "pgpro",
+   "provides": {
+       "tsvector2": {
+           "file": "tsvector2--1.0.sql",
+           "docfile": "README.md",
+           "version": "1.0",
+           "abstract": "Improved tsvector type for PostgreSQL 9.6 and higher"
+      }
+   },
+   "meta-spec": {
+      "version": "1.0.0",
+      "url": "http://pgxn.org/meta/spec.txt"
+   },
+   "tags": [
+       "tsvector",
+       "fulltext",
+       "search",
+       "tsvector2",
+       "1mb"
+   ]
+}
