@@ -2,7 +2,7 @@
    "name": "pg_pathman",
    "abstract": "Improved tsvector type for PostgreSQL",
    "description": "tsvector2 provides alternative to tsvector type with better compression and without 1MB limitation of original type",
-   "version": "1.0",
+   "version": "1.0.0",
    "maintainer": [
       "Ildus Kurbangaliev <i.kurbangaliev@gmail.com>"
    ],
@@ -22,7 +22,7 @@
        "tsvector2": {
            "file": "tsvector2--1.0.sql",
            "docfile": "README.md",
-           "version": "1.0",
+           "version": "1.0.0",
            "abstract": "Improved tsvector type for PostgreSQL 9.6 and higher"
       }
    },
