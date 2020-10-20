@@ -565,14 +565,14 @@ typedef struct
 #define QR_GET_OPERAND_DATA(q, v) \
 	( (q)->operandData + (((QueryItem*)(v)) - GETQUERY((q)->query)) )
 
-static bool
+static TSTernaryValue
 checkcondition_QueryOperand(void *checkval, QueryOperand *val, ExecPhraseData *data)
 {
 	QueryRepresentation *qr = (QueryRepresentation *) checkval;
 	QueryRepresentationOperand *opData = QR_GET_OPERAND_DATA(qr, val);
 
 	if (!opData->operandexists)
-		return false;
+		return TS_NO;
 
 	if (data)
 	{
@@ -582,7 +582,7 @@ checkcondition_QueryOperand(void *checkval, QueryOperand *val, ExecPhraseData *d
 			data->pos += MAXQROPOS - opData->npos;
 	}
 
-	return true;
+	return TS_YES;
 }
 
 typedef struct

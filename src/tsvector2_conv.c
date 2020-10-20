@@ -12,7 +12,12 @@
 #include "tsearch/ts_cache.h"
 #include "utils/builtins.h"
 #include "utils/jsonb.h"
+
+#if PG_VERSION_NUM < 130000
 #include "utils/jsonapi.h"
+#else
+#include "utils/jsonfuncs.h"
+#endif
 #include "tsearch/ts_utils.h"
 
 #include "tsvector2.h"

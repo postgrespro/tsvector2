@@ -150,34 +150,4 @@ select jsonb_to_tsvector2('null'::jsonb, '"all"');
  
 (1 row)
 
-select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '""');
- jsonb_to_tsvector2 
---------------------
- 'aaa':1 'bbb':3
-(1 row)
-
-select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '{}');
- jsonb_to_tsvector2 
---------------------
- 'aaa':1 'bbb':3
-(1 row)
-
-select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '[]');
- jsonb_to_tsvector2 
---------------------
- 'aaa':1 'bbb':3
-(1 row)
-
-select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, 'null');
- jsonb_to_tsvector2 
---------------------
- 'aaa':1 'bbb':3
-(1 row)
-
-select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '["all", null]');
- jsonb_to_tsvector2 
---------------------
- 'aaa':1 'bbb':3
-(1 row)
-
 DROP EXTENSION tsvector2;

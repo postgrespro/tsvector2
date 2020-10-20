@@ -1,0 +1,255 @@
+CREATE EXTENSION tsvector2;
+--ranking
+SELECT ts_rank(' a:1 s:2C d g'::tsvector2, 'a | s');
+   ts_rank   
+-------------
+ 0.091189064
+(1 row)
+
+SELECT ts_rank(' a:1 sa:2C d g'::tsvector2, 'a | s');
+   ts_rank   
+-------------
+ 0.030396355
+(1 row)
+
+SELECT ts_rank(' a:1 sa:2C d g'::tsvector2, 'a | s:*');
+   ts_rank   
+-------------
+ 0.091189064
+(1 row)
+
+SELECT ts_rank(' a:1 sa:2C d g'::tsvector2, 'a | sa:*');
+   ts_rank   
+-------------
+ 0.091189064
+(1 row)
+
+SELECT ts_rank(' a:1 s:2B d g'::tsvector2, 'a | s');
+  ts_rank   
+------------
+ 0.15198177
+(1 row)
+
+SELECT ts_rank(' a:1 s:2 d g'::tsvector2, 'a | s');
+  ts_rank   
+------------
+ 0.06079271
+(1 row)
+
+SELECT ts_rank(' a:1 s:2C d g'::tsvector2, 'a & s');
+  ts_rank   
+------------
+ 0.14015312
+(1 row)
+
+SELECT ts_rank(' a:1 s:2B d g'::tsvector2, 'a & s');
+  ts_rank   
+------------
+ 0.19820644
+(1 row)
+
+SELECT ts_rank(' a:1 s:2 d g'::tsvector2, 'a & s');
+  ts_rank   
+------------
+ 0.09910322
+(1 row)
+
+SELECT ts_rank_cd(' a:1 s:2C d g'::tsvector2, 'a | s');
+ ts_rank_cd 
+------------
+        0.3
+(1 row)
+
+SELECT ts_rank_cd(' a:1 sa:2C d g'::tsvector2, 'a | s');
+ ts_rank_cd 
+------------
+        0.1
+(1 row)
+
+SELECT ts_rank_cd(' a:1 sa:2C d g'::tsvector2, 'a | s:*');
+ ts_rank_cd 
+------------
+        0.3
+(1 row)
+
+SELECT ts_rank_cd(' a:1 sa:2C d g'::tsvector2, 'a | sa:*');
+ ts_rank_cd 
+------------
+        0.3
+(1 row)
+
+SELECT ts_rank_cd(' a:1 sa:3C sab:2c d g'::tsvector2, 'a | sa:*');
+ ts_rank_cd 
+------------
+        0.5
+(1 row)
+
+SELECT ts_rank_cd(' a:1 s:2B d g'::tsvector2, 'a | s');
+ ts_rank_cd 
+------------
+        0.5
+(1 row)
+
+SELECT ts_rank_cd(' a:1 s:2 d g'::tsvector2, 'a | s');
+ ts_rank_cd 
+------------
+        0.2
+(1 row)
+
+SELECT ts_rank_cd(' a:1 s:2C d g'::tsvector2, 'a & s');
+ ts_rank_cd 
+------------
+ 0.13333334
+(1 row)
+
+SELECT ts_rank_cd(' a:1 s:2B d g'::tsvector2, 'a & s');
+ ts_rank_cd 
+------------
+       0.16
+(1 row)
+
+SELECT ts_rank_cd(' a:1 s:2 d g'::tsvector2, 'a & s');
+ ts_rank_cd 
+------------
+        0.1
+(1 row)
+
+SELECT ts_rank_cd(' a:1 s:2A d g'::tsvector2, 'a <-> s');
+ ts_rank_cd 
+------------
+ 0.18181819
+(1 row)
+
+SELECT ts_rank_cd(' a:1 s:2C d g'::tsvector2, 'a <-> s');
+ ts_rank_cd 
+------------
+ 0.13333334
+(1 row)
+
+SELECT ts_rank_cd(' a:1 s:2 d g'::tsvector2, 'a <-> s');
+ ts_rank_cd 
+------------
+        0.1
+(1 row)
+
+SELECT ts_rank_cd(' a:1 s:2 d:2A g'::tsvector2, 'a <-> s');
+ ts_rank_cd 
+------------
+        0.1
+(1 row)
+
+SELECT ts_rank_cd(' a:1 s:2,3A d:2A g'::tsvector2, 'a <2> s:A');
+ ts_rank_cd 
+------------
+ 0.09090909
+(1 row)
+
+SELECT ts_rank_cd(' a:1 b:2 s:3A d:2A g'::tsvector2, 'a <2> s:A');
+ ts_rank_cd 
+------------
+ 0.09090909
+(1 row)
+
+SELECT ts_rank_cd(' a:1 sa:2D sb:2A g'::tsvector2, 'a <-> s:*');
+ ts_rank_cd 
+------------
+        0.1
+(1 row)
+
+SELECT ts_rank_cd(' a:1 sa:2A sb:2D g'::tsvector2, 'a <-> s:*');
+ ts_rank_cd 
+------------
+        0.1
+(1 row)
+
+SELECT ts_rank_cd(' a:1 sa:2A sb:2D g'::tsvector2, 'a <-> s:* <-> sa:A');
+ ts_rank_cd 
+------------
+          0
+(1 row)
+
+SELECT ts_rank_cd(' a:1 sa:2A sb:2D g'::tsvector2, 'a <-> s:* <-> sa:B');
+ ts_rank_cd 
+------------
+          0
+(1 row)
+
+SELECT ts_rank_cd(to_tsvector2('english', '
+Day after day, day after day,
+  We stuck, nor breath nor motion,
+As idle as a painted Ship
+  Upon a painted Ocean.
+Water, water, every where
+  And all the boards did shrink;
+Water, water, every where,
+  Nor any drop to drink.
+S. T. Coleridge (1772-1834)
+'), to_tsquery('english', 'paint&water'));
+ ts_rank_cd 
+------------
+       0.05
+(1 row)
+
+SELECT ts_rank_cd(to_tsvector2('english', '
+Day after day, day after day,
+  We stuck, nor breath nor motion,
+As idle as a painted Ship
+  Upon a painted Ocean.
+Water, water, every where
+  And all the boards did shrink;
+Water, water, every where,
+  Nor any drop to drink.
+S. T. Coleridge (1772-1834)
+'), to_tsquery('english', 'breath&motion&water'));
+ ts_rank_cd  
+-------------
+ 0.008333334
+(1 row)
+
+SELECT ts_rank_cd(to_tsvector2('english', '
+Day after day, day after day,
+  We stuck, nor breath nor motion,
+As idle as a painted Ship
+  Upon a painted Ocean.
+Water, water, every where
+  And all the boards did shrink;
+Water, water, every where,
+  Nor any drop to drink.
+S. T. Coleridge (1772-1834)
+'), to_tsquery('english', 'ocean'));
+ ts_rank_cd 
+------------
+        0.1
+(1 row)
+
+SELECT ts_rank_cd(to_tsvector2('english', '
+Day after day, day after day,
+  We stuck, nor breath nor motion,
+As idle as a painted Ship
+  Upon a painted Ocean.
+Water, water, every where
+  And all the boards did shrink;
+Water, water, every where,
+  Nor any drop to drink.
+S. T. Coleridge (1772-1834)
+'), to_tsquery('english', 'painted <-> Ship'));
+ ts_rank_cd 
+------------
+        0.1
+(1 row)
+
+SELECT ts_rank_cd(strip(to_tsvector2('both stripped')),
+                  to_tsquery('both & stripped'));
+ ts_rank_cd 
+------------
+          0
+(1 row)
+
+SELECT ts_rank_cd(to_tsvector2('unstripped') || strip(to_tsvector2('stripped')),
+                  to_tsquery('unstripped & stripped'));
+ ts_rank_cd 
+------------
+          0
+(1 row)
+
+DROP EXTENSION tsvector2;

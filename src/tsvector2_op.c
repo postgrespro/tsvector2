@@ -21,6 +21,7 @@
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
 #include "parser/parse_coerce.h"
+#include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
 #if PG_VERSION_NUM >= 100000
@@ -649,7 +650,7 @@ tsvector2_unnest(PG_FUNCTION_ARGS)
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		tupdesc = CreateTemplateTupleDesc(3, false);
+		tupdesc = CreateTemplateTupleDescCompat(3);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "lexeme",
 						   TEXTOID, -1, 0);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 2, "positions",
@@ -1445,7 +1446,7 @@ uniqueLongPos(WordEntryPos *pos, int npos)
 /*
  * is there value 'val' in array or not ?
  */
-static bool
+static TSTernaryValue
 checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 {
 	CHKVAL	   *chkval = (CHKVAL *) checkval;
@@ -1453,7 +1454,7 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 	int			StopHigh = chkval->eidx;
 	int			StopMiddle = StopHigh;
 	int			difference = -1;
-	bool		res = false;
+	TSTernaryValue		res = TS_NO;
 	char	   *lexeme;
 	WordEntry2  *entry;
 
@@ -2322,7 +2323,7 @@ ts_setup_firstcall(FunctionCallInfo fcinfo, FuncCallContext *funcctx,
 		}
 	Assert(stat->stackpos <= stat->maxdepth);
 
-	tupdesc = CreateTemplateTupleDesc(3, false);
+	tupdesc = CreateTemplateTupleDescCompat(3);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "word",
 					   TEXTOID, -1, 0);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 2, "ndoc",

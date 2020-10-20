@@ -14,7 +14,13 @@
 #include "postgres.h"
 
 #include "access/gist.h"
+
+#if PG_VERSION_NUM < 130000
 #include "access/tuptoaster.h"
+#else
+#include "access/heaptoast.h"
+#endif
+
 #include "utils/pg_crc.h"
 
 #include "tsvector2.h"

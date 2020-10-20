@@ -1,0 +1,19 @@
+CREATE EXTENSION tsvector2;
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '""');
+ERROR:  wrong flag in flag array: ""
+HINT:  Possible values are: "string", "numeric", "boolean", "key", and "all".
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '{}');
+ERROR:  wrong flag type, only arrays and scalars are allowed
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '[]');
+ jsonb_to_tsvector2 
+--------------------
+ 
+(1 row)
+
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, 'null');
+ERROR:  flag array element is not a string
+HINT:  Possible values are: "string", "numeric", "boolean", "key", and "all".
+select jsonb_to_tsvector2('english', '{"a": "aaa in bbb", "b": 123, "c": 456, "d": true, "f": false, "g": null}'::jsonb, '["all", null]');
+ERROR:  flag array element is not a string
+HINT:  Possible values are: "string", "numeric", "boolean", "key", and "all".
+DROP EXTENSION tsvector2;

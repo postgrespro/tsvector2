@@ -198,4 +198,20 @@ typedef enum JsonToIndex
 #define init_tsvector_parser_compat(x,y) init_tsvector_parser(x,y)
 #endif
 
+#if PG_VERSION_NUM >= 120000
+#define CreateTemplateTupleDescCompat(a) CreateTemplateTupleDesc(a)
+#else
+#define CreateTemplateTupleDescCompat(a) CreateTemplateTupleDesc(a,false)
+#endif
+
+#ifndef TS_EXEC_CALC_NOT
+#define TS_EXEC_CALC_NOT		(0x01)
+#endif
+
+#if PG_VERSION_NUM < 130000
+typedef bool TSTernaryValue;
+#define TS_YES true
+#define TS_NO false
+#endif
+
 #endif

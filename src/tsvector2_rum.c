@@ -316,7 +316,7 @@ compareDocR(const void *va, const void *vb)
 	return (a->pos > b->pos) ? 1 : -1;
 }
 
-static bool
+static TSTernaryValue
 checkcondition_QueryOperand(void *checkval, QueryOperand *val,
 							ExecPhraseData *data)
 {
