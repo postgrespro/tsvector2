@@ -603,6 +603,9 @@ calc_score_docr(float4 *arrdata, DocRepresentation *doc, uint32 doclen,
 		int			new_cover_key = 0;
 		int			nitems = 0;
 
+        if (ptr == NULL)
+            break;
+
 		while (ptr <= ext.end)
 		{
 			InvSum += arrdata[ptr->wclass];
